@@ -1,0 +1,7 @@
+{
+  "name": "EventMaster AI",
+  "description": "A comprehensive event management application with AI-powered descriptions, guest registration, unique QR code generation, and check-in scanning capabilities.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
