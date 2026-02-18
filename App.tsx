@@ -73,33 +73,56 @@ const App: React.FC = () => {
 
   // Check authentication state on mount
   useEffect(() => {
+    console.log('App mounted - starting auth check');
+    
     const checkAuth = async () => {
-      const user = await getCurrentUser();
-      if (user) {
-        setAuthUser(user);
-        setIsAuthenticated(true);
-        setView('DASHBOARD');
-        loadInitialData();
+      try {
+        console.log('Checking current user...');
+        const user = await getCurrentUser();
+        console.log('Current user result:', user);
+        
+        if (user) {
+          console.log('User authenticated, loading data...');
+          setAuthUser(user);
+          setIsAuthenticated(true);
+          setView('DASHBOARD');
+          await loadInitialData();
+        } else {
+          console.log('No user found, showing login');
+          setAuthUser(null);
+          setIsAuthenticated(false);
+          setView('LOGIN');
+        }
+      } catch (error) {
+        console.error('Error during auth check:', error);
+        setAuthUser(null);
+        setIsAuthenticated(false);
+        setView('LOGIN');
       }
     };
     
     checkAuth();
     
     // Listen for auth changes
-    const { data: { subscription } } = onAuthStateChange((user) => {
-      if (user) {
-        setAuthUser(user);
-        setIsAuthenticated(true);
-        setView('DASHBOARD');
-        loadInitialData();
-      } else {
-        setAuthUser(null);
-        setIsAuthenticated(false);
-        setView('LOGIN');
-      }
-    });
-    
-    return () => subscription?.unsubscribe();
+    try {
+      const { data: { subscription } } = onAuthStateChange((user) => {
+        console.log('Auth state changed:', user);
+        if (user) {
+          setAuthUser(user);
+          setIsAuthenticated(true);
+          setView('DASHBOARD');
+          loadInitialData();
+        } else {
+          setAuthUser(null);
+          setIsAuthenticated(false);
+          setView('LOGIN');
+        }
+      });
+      
+      return () => subscription?.unsubscribe();
+    } catch (error) {
+      console.error('Error setting up auth listener:', error);
+    }
   }, []);
 
   const loadInitialData = async () => {
