@@ -1,39 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EventMaster AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-      body { font-family: 'Inter', sans-serif; }
-      /* Hide scrollbar for clean UI */
-      .no-scrollbar::-webkit-scrollbar {
-          display: none;
-      }
-      .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-      }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "jsqr": "https://esm.sh/jsqr@^1.4.0",
-    "react-qr-code": "https://esm.sh/react-qr-code@^2.0.18"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste EventMaster</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-  <body class="bg-slate-50 text-slate-900">
+<body>
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        function TestApp() {
+            const [status, setStatus] = useState('Testando ambiente...');
+            const [envVars, setEnvVars] = useState({});
+            
+            useEffect(() => {
+                // Testar variáveis de ambiente
+                const vars = {
+                    VITE_SUPABASE_URL: import.meta.env?.VITE_SUPABASE_URL || 'NÃO DEFINIDA',
+                    VITE_SUPABASE_ANON_KEY: import.meta.env?.VITE_SUPABASE_ANON_KEY ? 'DEFINIDA' : 'NÃO DEFINIDA'
+                };
+                
+                setEnvVars(vars);
+                
+                if (vars.VITE_SUPABASE_URL !== 'NÃO DEFINIDA' && vars.VITE_SUPABASE_ANON_KEY === 'DEFINIDA') {
+                    setStatus('✅ Variáveis OK! Testando Supabase...');
+                    
+                    // Testar conexão Supabase
+                    testSupabaseConnection();
+                } else {
+                    setStatus('❌ Variáveis não configuradas');
+                }
+            }, []);
+            
+            const testSupabaseConnection = async () => {
+                try {
+                    // Carregar Supabase dinamicamente
+                    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+                    
+                    const supabase = createClient(
+                        import.meta.env.VITE_SUPABASE_URL,
+                        import.meta.env.VITE_SUPABASE_ANON_KEY
+                    );
+                    
+                    const { data, error } = await supabase.from('events').select('count').single();
+                    
+                    if (error) {
+                        setStatus(`❌ Erro Supabase: ${error.message}`);
+                    } else {
+                        setStatus(`✅ Supabase conectado! Events: ${data?.count || 0}`);
+                    }
+                } catch (error) {
+                    setStatus(`❌ Erro ao carregar Supabase: ${error.message}`);
+                }
+            };
+            
+            return React.createElement('div', {
+                style: {
+                    padding: '40px',
+                    fontFamily: 'Arial, sans-serif',
+                    maxWidth: '800px',
+                    margin: '0 auto'
+                }
+            }, [
+                React.createElement('h1', { style: { color: '#333' } }, '🔍 Teste EventMaster AI'),
+                React.createElement('div', {
+                    style: {
+                        backgroundColor: '#f5f5f5',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        margin: '20px 0'
+                    }
+                }, [
+                    React.createElement('h3', null, 'Status:'),
+                    React.createElement('p', { 
+                        style: { fontSize: '18px', fontWeight: 'bold' } 
+                    }, status),
+                    React.createElement('h4', { style: { marginTop: '20px' } }, 'Variáveis de Ambiente:'),
+                    React.createElement('pre', {
+                        style: {
+                            backgroundColor: '#fff',
+                            padding: '10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '4px',
+                            overflow: 'auto'
+                        }
+                    }, JSON.stringify(envVars, null, 2))
+                ])
+            ]);
+        }
+        
+        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(TestApp));
+    </script>
 </body>
 </html>
