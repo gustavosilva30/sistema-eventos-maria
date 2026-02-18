@@ -1,0 +1,17 @@
+# Variáveis de Ambiente para Vercel
+
+# Copie e cole estas variáveis no painel do Vercel:
+# Settings > Environment Variables
+
+NOME_DA_VARIAVEL=VALOR
+
+VITE_SUPABASE_URL=https://gvfrpnkdsrvmvkirorhi.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2ZnJwbmtkc3J2bXZraXJvcmhpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzMTgwODQsImV4cCI6MjA4Njg5NDA4NH0.8isWR5PAMZ1GtCYp5ECz0Uz9McUYd5m1oje86g9DF_8
+
+# Instruções:
+# 1. Vá para o painel do Vercel
+# 2. Selecione seu projeto
+# 3. Vá para Settings > Environment Variables
+# 4. Adicione cada variável acima
+# 5. Clique em Save
+# 6. Re-deploy o projeto

@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { 
   Plus, Calendar, MapPin, Users, QrCode, Search, 
   Trash2, ChevronLeft, Share2, Mail, MessageCircle, Sparkles, CheckCircle, 
-  X, Menu, Bell, Home, CheckSquare, Clock, ScanLine, Settings, Shield, User, Briefcase
+  X, Menu, Bell, Home, CheckSquare, Clock, ScanLine, Settings, Shield, User, Briefcase, LogOut
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import Scanner from './components/Scanner';
-import { Event, Guest, ViewState, QRCodePayload, Reminder, User as AppUser } from './types';
+import Login from './components/Login';
+import { Event, Guest, ViewState, QRCodePayload, Reminder, User as AppUser, AuthUser } from './types';
 import * as Storage from './services/supabaseStorageService';
 import * as GeminiService from './services/geminiService';
 import { parseExcelGuests } from './services/excelUtils';
+import { getCurrentUser, onAuthStateChange, signOut } from './services/authService';
 
 // --- Helper Components ---
 
@@ -42,7 +44,9 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('DASHBOARD');
+  const [view, setView] = useState<ViewState>('LOGIN');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -67,27 +71,78 @@ const App: React.FC = () => {
   const [newUser, setNewUser] = useState<Partial<AppUser>>({ role: 'STAFF' });
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
-  // Load initial data
+  // Check authentication state on mount
   useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        const [eventsData, remindersData, usersData] = await Promise.all([
-          Storage.getEvents(),
-          Storage.getReminders(),
-          Storage.getUsers()
-        ]);
-        setEvents(eventsData);
-        setReminders(remindersData);
-        setUsers(usersData);
-        if (usersData.length > 0) {
-          setCurrentUser(usersData[0]);
-        }
-      } catch (error) {
-        console.error('Error loading initial data:', error);
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setAuthUser(user);
+        setIsAuthenticated(true);
+        setView('DASHBOARD');
+        loadInitialData();
       }
     };
-    loadInitialData();
+    
+    checkAuth();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = onAuthStateChange((user) => {
+      if (user) {
+        setAuthUser(user);
+        setIsAuthenticated(true);
+        setView('DASHBOARD');
+        loadInitialData();
+      } else {
+        setAuthUser(null);
+        setIsAuthenticated(false);
+        setView('LOGIN');
+      }
+    });
+    
+    return () => subscription?.unsubscribe();
   }, []);
+
+  const loadInitialData = async () => {
+    try {
+      const [eventsData, remindersData, usersData] = await Promise.all([
+        Storage.getEvents(),
+        Storage.getReminders(),
+        Storage.getUsers()
+      ]);
+      setEvents(eventsData);
+      setReminders(remindersData);
+      setUsers(usersData);
+      if (usersData.length > 0) {
+        setCurrentUser(usersData[0]);
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setIsAuthenticated(true);
+    setView('DASHBOARD');
+    loadInitialData();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setAuthUser(null);
+      setIsAuthenticated(false);
+      setView('LOGIN');
+      // Clear all data
+      setEvents([]);
+      setGuests([]);
+      setReminders([]);
+      setUsers([]);
+      setSelectedEvent(null);
+      setCurrentUser(null);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   // Update guest list based on context
   useEffect(() => {
@@ -880,6 +935,11 @@ const App: React.FC = () => {
     </button>
   );
 
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <Login onAuthSuccess={handleAuthSuccess} />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       {/* Sidebar for Desktop */}
@@ -923,8 +983,20 @@ const App: React.FC = () => {
             />
           </nav>
 
-          <div className="text-xs text-slate-400 px-2 mt-auto">
-             v1.0.0
+          <div className="border-t border-slate-200 pt-4 space-y-2">
+            <div className="text-xs text-slate-500 px-2">
+              {authUser?.email}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut size={20} />
+              Sair
+            </button>
+            <div className="text-xs text-slate-400 px-2">
+               v1.0.0
+            </div>
           </div>
         </div>
       </aside>
