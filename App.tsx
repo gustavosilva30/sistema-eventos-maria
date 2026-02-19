@@ -379,10 +379,12 @@ const App: React.FC = () => {
       } else {
         alert("Nenhum convidado válido para importar com o mapeamento atual.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Final Import Error:', err);
-      alert("Erro ao salvar os convidados. Tente novamente.");
-    } finally {
+      const errorMsg = err.message || JSON.stringify(err);
+      alert(`Erro ao salvar os convidados: ${errorMsg}\n\nVerifique se as tabelas do banco de dados foram criadas corretamente via SQL.`);
+    }
+ finally {
       setIsImporting(false);
     }
   };
