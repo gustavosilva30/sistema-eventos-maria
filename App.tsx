@@ -157,26 +157,30 @@ const App: React.FC = () => {
   }, []);
 
   const handleLoadPublicTicket = async (id: string) => {
+    const cleanId = id.trim();
+    if (!cleanId) return;
+
     setIsLoadingPublic(true);
     setView('PUBLIC_TICKET');
     try {
-      const guestData = await Storage.getGuestById(id);
+      const guestData = await Storage.getGuestById(cleanId);
       if (guestData) {
         const eventData = await Storage.getEventById(guestData.eventId);
         if (eventData) {
           setPublicTicketData({ guest: guestData, event: eventData });
         } else {
-          alert('Evento não encontrado para este ticket.');
-          setView('LOGIN');
+          // Instead of alert + setView('LOGIN'), we just show that it was not found
+          console.error('Event not found for public ticket');
+          setPublicTicketData(null);
         }
       } else {
-        alert('Ticket não encontrado ou inválido.');
-        setView('LOGIN');
+        console.error('Guest not found for public ticket');
+        setPublicTicketData(null);
       }
     } catch (error) {
       console.error('Error loading public ticket:', error);
-      alert('Erro ao carregar o ticket. Verifique sua conexão.');
-      setView('LOGIN');
+      // Stay on PUBLIC_TICKET view but with null data so it shows "Not found"
+      setPublicTicketData(null);
     } finally {
       setIsLoadingPublic(false);
     }
@@ -311,12 +315,26 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     const targetEventId = selectedEvent?.id || newGuest.targetEventId;
     
-    if (!file || !targetEventId) return;
+    if (!file) return;
+
+    if (!targetEventId) {
+      alert("Por favor, selecione um evento antes de importar.");
+      e.target.value = ''; // Reset input
+      return;
+    }
 
     try {
       const parsedGuests = await parseExcelGuests(file, targetEventId);
       if (parsedGuests.length > 0) {
         await Storage.saveGuests(parsedGuests as Guest[]);
+        
+        // Success feedback
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
         // Refresh lists
         if (view === 'EVENT_DETAILS' && selectedEvent) {
           const guestsData = await Storage.getGuestsByEventId(selectedEvent.id);
@@ -327,11 +345,13 @@ const App: React.FC = () => {
         }
         alert(`${parsedGuests.length} convidados importados com sucesso!`);
       } else {
-        alert("Nenhum convidado encontrado na planilha. Verifique se há colunas com Nome/CPF/Telefone.");
+        alert("Nenhum convidado encontrado na planilha. Verifique se há colunas com Nome/CPF/Telefone (ex: 'Nome', 'CPF', 'Telefone').");
       }
     } catch (err) {
-      console.error(err);
-      alert("Erro ao ler a planilha. Certifique-se de que é um arquivo .xlsx ou .xls válido.");
+      console.error('Excel Import Error:', err);
+      alert("Erro ao ler a planilha. Verifique se o arquivo está no formato correto (.xlsx) e se contém os dados necessários.");
+    } finally {
+      e.target.value = ''; // Clean up input for next use
     }
   };
 

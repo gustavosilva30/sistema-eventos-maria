@@ -54,15 +54,23 @@ export const parseExcelGuests = async (file: File, eventId: string): Promise<Par
         const cpfCol = findBestColumn(headers, COLUMN_KEYWORDS.cpf);
         const phoneCol = findBestColumn(headers, COLUMN_KEYWORDS.phone);
 
-        const guests: Partial<Guest>[] = jsonData.map(row => ({
-          id: crypto.randomUUID(),
-          eventId,
-          name: nameCol ? String(row[nameCol]) : '',
-          cpf: cpfCol ? String(row[cpfCol]) : '',
-          phone: phoneCol ? String(row[phoneCol]) : '',
-          email: '',
-          checkedIn: false
-        })).filter(g => g.name || g.cpf || g.phone);
+        const guests: Partial<Guest>[] = jsonData.map(row => {
+          const id = crypto.randomUUID();
+          return {
+            id,
+            eventId,
+            name: nameCol ? String(row[nameCol]) : '',
+            cpf: cpfCol ? String(row[cpfCol]) : '',
+            phone: phoneCol ? String(row[phoneCol]) : '',
+            email: '',
+            checkedIn: false,
+            qrCodeData: JSON.stringify({
+              eventId,
+              guestId: id,
+              valid: true
+            })
+          };
+        }).filter(g => g.name || g.cpf || g.phone);
 
         resolve(guests);
       } catch (err) {
