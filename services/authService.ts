@@ -10,12 +10,14 @@ export interface AuthUser {
 }
 
 export const signIn = async (email: string, password: string) => {
+  console.log('Vercel Sign-In Attempt:', email);
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
+    console.error('Vercel Sign-In Error:', error);
     throw error;
   }
 
@@ -23,6 +25,7 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signUp = async (email: string, password: string, name: string) => {
+  console.log('Vercel Sign-Up Attempt:', email, name);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -34,6 +37,7 @@ export const signUp = async (email: string, password: string, name: string) => {
   });
 
   if (error) {
+    console.error('Vercel Sign-Up Error:', error);
     throw error;
   }
 
