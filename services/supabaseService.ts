@@ -1,13 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
 
-console.log('Supabase check:', { url: !!supabaseUrl, key: !!supabaseAnonKey });
+console.log('Supabase check:', { 
+  url: supabaseUrl ? 'PRESENT' : 'MISSING', 
+  key: supabaseAnonKey ? 'PRESENT' : 'MISSING' 
+});
 
-export const supabase = !supabaseUrl || !supabaseAnonKey 
-  ? (() => {
-      console.error('Missing Supabase environment variables. URL:', supabaseUrl, 'Key present:', !!supabaseAnonKey);
-      return createClient('https://placeholder.supabase.co', 'placeholder-key');
-    })()
-  : createClient(supabaseUrl, supabaseAnonKey);
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Missing Supabase environment variables. App will likely fail.');
+}
+
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder-key'
+);
