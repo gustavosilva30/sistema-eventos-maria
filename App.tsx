@@ -1415,8 +1415,7 @@ const App: React.FC = () => {
       <Modal isOpen={!!showQRModal} onClose={() => setShowQRModal(null)} title="Ticket do Convidado">
         {showQRModal && (
           <div className="flex flex-col items-center justify-center">
-            {/* The Invisible Ticket for Capture */}
-            <div className="fixed left-[-9999px]">
+            <div className="fixed top-0 left-0 pointer-events-none z-[-100] opacity-[0.001]">
               <div id="digital-ticket" className="bg-white w-[350px] p-6 rounded-2xl border-2 border-slate-100 flex flex-col items-center">
                 <div className="w-full flex justify-between items-center mb-6">
                   <div className="font-bold text-xl text-indigo-600">EventMaster AI</div>
