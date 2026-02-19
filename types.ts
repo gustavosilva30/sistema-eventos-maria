@@ -12,6 +12,7 @@ export interface Event {
 export interface Guest {
   id: string;
   eventId: string;
+  registryId?: string;
   name: string;
   cpf: string;
   phone: string;
@@ -43,7 +44,15 @@ export interface QRCodePayload {
   valid: boolean;
 }
 
-export type ViewState = 'DASHBOARD' | 'CREATE_EVENT' | 'EVENT_DETAILS' | 'SCANNER' | 'GUESTS' | 'REMINDERS' | 'SETTINGS' | 'LOGIN' | 'PUBLIC_TICKET';
+export interface RegistryMember {
+  id: string;
+  name: string;
+  cpf: string;
+  phone: string;
+  email: string;
+}
+
+export type ViewState = 'DASHBOARD' | 'CREATE_EVENT' | 'EVENT_DETAILS' | 'SCANNER' | 'GUESTS' | 'REMINDERS' | 'SETTINGS' | 'LOGIN' | 'PUBLIC_TICKET' | 'REGISTRY';
 
 export interface AuthUser {
   id: string;

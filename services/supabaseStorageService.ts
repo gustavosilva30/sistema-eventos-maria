@@ -1,4 +1,4 @@
-import { Event, Guest, Reminder, User } from '../types';
+import { Event, Guest, Reminder, User, RegistryMember } from '../types';
 import { supabase } from './supabaseService';
 
 // --- Events ---
@@ -94,29 +94,52 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
 // --- Guests ---
 
 export const getAllGuests = async (): Promise<Guest[]> => {
-  const { data, error } = await supabase
-    .from('guests')
+  // 1. Fetch all registry members
+  const { data: registry, error: regError } = await supabase
+    .from('registry')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('name', { ascending: true });
 
-  if (error) {
-    console.error('Error fetching guests:', error);
+  if (regError) {
+    console.error('Error fetching registry:', regError);
     return [];
   }
 
-  return data.map(guest => ({
-    id: guest.id,
-    eventId: guest.event_id,
-    name: guest.name,
-    cpf: guest.cpf,
-    phone: guest.phone,
-    email: guest.email,
-    checkedIn: guest.checked_in,
-    checkInTime: guest.check_in_time,
-    checkInMethod: guest.check_in_method as 'QR' | 'MANUAL',
-    authorizedBy: guest.authorized_by,
-    qrCodeData: guest.qr_code_data
-  }));
+  // 2. Fetch all guest participations
+  const { data: participations, error: partError } = await supabase
+    .from('guests')
+    .select('*');
+
+  if (partError) {
+    console.error('Error fetching participations:', partError);
+    return [];
+  }
+
+  // 3. Merge: Each registry member becomes a "Guest" object for the UI
+  return registry.map(r => {
+    // Find participations for this person
+    const personParts = participations.filter(p => p.registry_id === r.id || p.cpf === r.cpf);
+    
+    // Pick the most recent participation as the "primary" one to show status/QR
+    const latest = personParts.length > 0 
+      ? personParts.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0]
+      : null;
+
+    return {
+      id: latest?.id || r.id, // If not in an event, use registry ID
+      registryId: r.id,
+      eventId: latest?.event_id || '',
+      name: r.name,
+      cpf: r.cpf,
+      phone: r.phone,
+      email: r.email,
+      checkedIn: latest?.checked_in || false,
+      checkInTime: latest?.check_in_time,
+      checkInMethod: latest?.check_in_method as 'QR' | 'MANUAL',
+      authorizedBy: latest?.authorized_by,
+      qrCodeData: latest?.qr_code_data || ''
+    };
+  });
 };
 
 export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
@@ -124,7 +147,7 @@ export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
     .from('guests')
     .select('*')
     .eq('event_id', eventId)
-    .order('created_at', { ascending: false });
+    .order('name', { ascending: true });
 
   if (error) {
     console.error('Error fetching guests by event:', error);
@@ -133,6 +156,7 @@ export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
 
   return data.map(guest => ({
     id: guest.id,
+    registryId: guest.registry_id,
     eventId: guest.event_id,
     name: guest.name,
     cpf: guest.cpf,
@@ -147,10 +171,21 @@ export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
 };
 
 export const saveGuest = async (guest: Guest): Promise<void> => {
+  // 1. Ensure the person is in the Registry first
+  const registryId = await saveToRegistry({
+    id: guest.registryId || '',
+    name: guest.name,
+    cpf: guest.cpf,
+    phone: guest.phone,
+    email: guest.email
+  });
+
+  // 2. Save the guest participation
   const guestData = {
     id: guest.id,
     event_id: guest.eventId,
-    name: guest.name,
+    registry_id: registryId,
+    name: guest.name, // Denormalized for compatibility
     cpf: guest.cpf,
     phone: guest.phone,
     email: guest.email,
@@ -172,9 +207,38 @@ export const saveGuest = async (guest: Guest): Promise<void> => {
 };
 
 export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
+  // 1. Bulk upsert people into registry
+  const registryMembers: RegistryMember[] = newGuests.map(g => ({
+    id: g.registryId || '',
+    name: g.name,
+    cpf: g.cpf,
+    phone: g.phone,
+    email: g.email
+  }));
+
+  const { data: regResult, error: regError } = await supabase
+    .from('registry')
+    .upsert(registryMembers.map(m => ({
+      name: m.name,
+      cpf: m.cpf,
+      phone: m.phone,
+      email: m.email
+    })), { onConflict: 'cpf' })
+    .select('id, cpf');
+
+  if (regError) {
+    console.error('Error bulk saving to registry:', regError);
+    throw regError;
+  }
+
+  // Map CPF to registry ID for guest linking
+  const cpfToRegId = new Map(regResult.map(r => [r.cpf, r.id]));
+
+  // 2. Bulk upsert participations
   const guestsData = newGuests.map(guest => ({
     id: guest.id,
     event_id: guest.eventId,
+    registry_id: cpfToRegId.get(guest.cpf),
     name: guest.name,
     cpf: guest.cpf,
     phone: guest.phone,
@@ -216,6 +280,60 @@ export const deleteGuests = async (ids: string[]): Promise<void> => {
 
   if (error) {
     console.error('Error deleting guests:', error);
+    throw error;
+  }
+};
+
+// --- Registry (Contacts/Master List) ---
+
+export const getRegistry = async (): Promise<RegistryMember[]> => {
+  const { data, error } = await supabase
+    .from('registry')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching registry:', error);
+    return [];
+  }
+
+  return data.map(r => ({
+    id: r.id,
+    name: r.name,
+    cpf: r.cpf,
+    phone: r.phone,
+    email: r.email
+  }));
+};
+
+export const saveToRegistry = async (member: RegistryMember): Promise<string> => {
+  const { data, error } = await supabase
+    .from('registry')
+    .upsert({
+      id: member.id || crypto.randomUUID(),
+      name: member.name,
+      cpf: member.cpf,
+      phone: member.phone,
+      email: member.email
+    }, { onConflict: 'cpf' })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('Error saving to registry:', error);
+    throw error;
+  }
+  return data.id;
+};
+
+export const deleteFromRegistry = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('registry')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting from registry:', error);
     throw error;
   }
 };

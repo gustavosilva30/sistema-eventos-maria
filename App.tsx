@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Plus, Calendar, MapPin, Users, QrCode, Search, 
   Trash2, ChevronLeft, Share2, Mail, MessageCircle, Sparkles, CheckCircle, 
-  X, Menu, Bell, Home, CheckSquare, Clock, ScanLine, Settings, Shield, User, Briefcase, LogOut
+  X, Menu, Bell, Home, CheckSquare, Clock, ScanLine, Settings, Shield, User, Briefcase, LogOut,
+  FileDown, ArrowLeft, MoreVertical
 } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import Scanner from './components/Scanner';
 import Login from './components/Login';
-import { Event, Guest, ViewState, QRCodePayload, Reminder, User as AppUser, AuthUser } from './types';
+import { Event, Guest, ViewState, QRCodePayload, Reminder, User as AppUser, AuthUser, RegistryMember } from './types';
 import * as Storage from './services/supabaseStorageService';
 import * as GeminiService from './services/geminiService';
 import { parseExcelGuests, getExcelData, parseExcelGuestsWithMapping, autoDetectColumns } from './services/excelUtils';
@@ -88,6 +89,7 @@ const App: React.FC = () => {
   const [columnMapping, setColumnMapping] = useState({ name: '', cpf: '', phone: '' });
   const [isImporting, setIsImporting] = useState(false);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
 
   // Check authentication state on mount
   useEffect(() => {
@@ -137,7 +139,7 @@ const App: React.FC = () => {
     
     // Listen for auth changes
     try {
-      const { data: { subscription } } = onAuthStateChange((user) => {
+      const { data: { subscription } = {} } = onAuthStateChange((user) => {
         if (user) {
           setAuthUser(user);
           setIsAuthenticated(true);
@@ -468,9 +470,27 @@ const App: React.FC = () => {
   };
 
   const handleDeleteGuest = async (id: string) => {
-    if (confirm('Tem certeza que deseja remover este convidado?')) {
+    const isGlobalView = view === 'GUESTS';
+    const confirmMsg = isGlobalView 
+      ? 'Tem certeza que deseja excluir permanentemente este convidado do registro? Esta ação não pode ser desfeita.'
+      : 'Tem certeza que deseja remover este convidado do evento? Ele permanecerá no registro global.';
+
+    if (confirm(confirmMsg)) {
       try {
-        await Storage.deleteGuest(id);
+        if (isGlobalView) {
+          // If the ID could be a guest ID, we need to find the registry ID
+          // But our getAllGuests mapping handles this, and if it's the global view, 
+          // we want to ensure we delete from registry.
+          const guest = guests.find(g => g.id === id);
+          if (guest?.registryId) {
+            await Storage.deleteFromRegistry(guest.registryId);
+          } else {
+            // Fallback for cases where it's already a registry ID
+            await Storage.deleteFromRegistry(id);
+          }
+        } else {
+          await Storage.deleteGuest(id);
+        }
         
         // Refresh lists
         if (view === 'EVENT_DETAILS' && selectedEvent) {
@@ -672,23 +692,85 @@ const App: React.FC = () => {
     }
   };
 
-  const handleShareTicket = async (guest: Guest) => {
-    // We now use the public link strategy for better compatibility
-    const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Seu Ticket - EventMaster AI',
-          text: `Olá ${guest.name}! Aqui está o seu ingresso para o evento:`,
-          url: publicLink
-        });
-      } catch (err) {
-        console.error('Error sharing link:', err);
-        // Fallback to clipboard
-        copyToClipboard(publicLink);
-      }
+  const toggleEventSelection = (id: string) => {
+    setSelectedEventIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const toggleSelectAllEvents = () => {
+    if (selectedEventIds.size === events.length && events.length > 0) {
+      setSelectedEventIds(new Set());
     } else {
+      setSelectedEventIds(new Set(events.map(e => e.id)));
+    }
+  };
+
+  const handleBulkDeleteEvents = async () => {
+    const count = selectedEventIds.size;
+    if (confirm(`Deseja realmente excluir os ${count} eventos selecionados? Isso removerá as participações dos convidados nestes eventos.`)) {
+      try {
+        await Promise.all(Array.from(selectedEventIds).map((id: string) => Storage.deleteEvent(id)));
+        
+        // Clear selection
+        setSelectedEventIds(new Set());
+        
+        // Refresh
+        const eventsData = await Storage.getEvents();
+        setEvents(eventsData);
+        
+        alert(`${count} eventos excluídos com sucesso.`);
+      } catch (error) {
+        console.error('Error in bulk delete events:', error);
+        alert('Erro ao excluir eventos em massa.');
+      }
+    }
+  };
+
+  const handleShareTicket = async (guest: Guest) => {
+    const element = document.getElementById('digital-ticket');
+    if (!element) return;
+
+    try {
+      // 1. Capture the ticket as an image
+      const canvas = await html2canvas(element, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: '#ffffff'
+      });
+
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to create blob');
+
+      const file = new File([blob], `ticket-${guest.name}.png`, { type: 'image/png' });
+
+      // 2. Try to share via Web Share API (Mobile)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: `Ticket - ${guest.name}`,
+          text: `Olá ${guest.name}! Aqui está o seu ingresso para o evento.`,
+          files: [file]
+        });
+      } else {
+        // 3. Fallback: Download or Clipboard Link
+        const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
+        
+        // Try to trigger a download as a backup for desktop
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `ticket-${guest.name}.png`;
+        link.click();
+        
+        copyToClipboard(publicLink);
+        alert('Imagem baixada e link copiado! Você pode enviar o arquivo pelo WhatsApp.');
+      }
+    } catch (err) {
+      console.error('Error sharing ticket image:', err);
+      // Absolute fallback to link
+      const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
       copyToClipboard(publicLink);
     }
   };
@@ -720,12 +802,33 @@ const App: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Eventos</h1>
           <p className="text-slate-500 mt-1">Gerencie seus eventos e convidados.</p>
         </div>
-        <button 
-          onClick={() => { setNewEvent({ attractions: [], gallery: [] }); setShowEventModal(true); }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition-all"
-        >
-          <Plus size={20} /> Novo Evento
-        </button>
+        <div className="flex gap-2">
+          {selectedEventIds.size > 0 && (
+            <button 
+              onClick={handleBulkDeleteEvents}
+              className="bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2.5 rounded-lg flex items-center gap-2 border border-rose-200 transition-all font-bold text-sm"
+            >
+              <Trash2 size={18} /> Excluir ({selectedEventIds.size})
+            </button>
+          )}
+          <button 
+            onClick={() => { setNewEvent({ attractions: [], gallery: [] }); setShowEventModal(true); }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm transition-all"
+          >
+            <Plus size={20} /> Novo Evento
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-4 flex items-center gap-2 px-2 text-xs text-slate-500">
+         <input 
+            type="checkbox" 
+            title="Selecionar Todos os Eventos"
+            className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            checked={selectedEventIds.size === events.length && events.length > 0}
+            onChange={toggleSelectAllEvents}
+          />
+          <span>Selecionar Todos</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -736,11 +839,20 @@ const App: React.FC = () => {
           </div>
         )}
         {events.map(event => (
-          <div key={event.id} className="group bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all overflow-hidden flex flex-col">
+          <div key={event.id} className={`group bg-white rounded-xl shadow-sm border transition-all overflow-hidden flex flex-col ${selectedEventIds.has(event.id) ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-slate-200 hover:shadow-md'}`}>
             <div className="h-32 bg-slate-100 relative">
               <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-                <h3 className="text-white font-bold text-lg leading-tight truncate">{event.name}</h3>
+                <div className="flex items-center gap-2 w-full">
+                  <input 
+                    type="checkbox" 
+                    title={`Selecionar ${event.name}`}
+                    className="w-4 h-4 rounded border-white/30 bg-black/20 text-indigo-500 focus:ring-indigo-500 checked:bg-indigo-500"
+                    checked={selectedEventIds.has(event.id)}
+                    onChange={() => toggleEventSelection(event.id)}
+                  />
+                  <h3 className="text-white font-bold text-lg leading-tight truncate">{event.name}</h3>
+                </div>
               </div>
             </div>
             <div className="p-4 flex-1 flex flex-col">
@@ -901,9 +1013,15 @@ const App: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 text-slate-400">
-                        <button onClick={() => setShowQRModal(guest)} className="p-1 hover:text-indigo-600 transition-colors" title="Ver Ticket">
-                          <QrCode size={18} />
-                        </button>
+                        {guest.eventId ? (
+                          <button onClick={() => setShowQRModal(guest)} className="p-1 hover:text-indigo-600 transition-colors" title="Ver Ticket">
+                            <QrCode size={18} />
+                          </button>
+                        ) : (
+                          <div className="p-1 opacity-20 cursor-not-allowed" title="Convidado sem Evento">
+                             <QrCode size={18} />
+                          </div>
+                        )}
                         <button onClick={() => { setNewGuest(guest); setShowGuestModal(true); }} className="p-1 hover:text-indigo-600 transition-colors" title="Editar Convidado">
                           <Settings size={18} />
                         </button>
