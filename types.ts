@@ -11,7 +11,7 @@ export interface Event {
 
 export interface Guest {
   id: string;
-  eventId: string;
+  eventId?: string;
   registryId?: string;
   name: string;
   cpf: string;

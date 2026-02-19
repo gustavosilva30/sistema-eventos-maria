@@ -180,7 +180,9 @@ export const saveGuest = async (guest: Guest): Promise<void> => {
     email: guest.email
   });
 
-  // 2. Save the guest participation
+  // 2. Save the guest participation only if an event is provided
+  if (!guest.eventId) return;
+
   const guestData = {
     id: guest.id,
     event_id: guest.eventId,
@@ -201,7 +203,7 @@ export const saveGuest = async (guest: Guest): Promise<void> => {
     .upsert(guestData, { onConflict: 'id' });
 
   if (error) {
-    console.error('Error saving guest:', error);
+    console.error('Error saving guest participation:', error);
     throw error;
   }
 };
@@ -234,8 +236,11 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
   // Map CPF to registry ID for guest linking
   const cpfToRegId = new Map(regResult.map(r => [r.cpf, r.id]));
 
-  // 2. Bulk upsert participations
-  const guestsData = newGuests.map(guest => ({
+  // 2. Bulk upsert participations only for those linked to an event
+  const participations = newGuests.filter(g => g.eventId);
+  if (participations.length === 0) return;
+
+  const participationsData = participations.map(guest => ({
     id: guest.id,
     event_id: guest.eventId,
     registry_id: cpfToRegId.get(guest.cpf),
@@ -252,10 +257,10 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
 
   const { error } = await supabase
     .from('guests')
-    .upsert(guestsData, { onConflict: 'id' });
+    .upsert(participationsData, { onConflict: 'id' });
 
   if (error) {
-    console.error('Error saving guests:', error);
+    console.error('Error saving guest participations:', error);
     throw error;
   }
 };

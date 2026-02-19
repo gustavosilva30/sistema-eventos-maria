@@ -63,7 +63,7 @@ export const getExcelData = async (file: File): Promise<{ headers: string[], row
 export const parseExcelGuestsWithMapping = (
   rows: ExcelRow[], 
   mapping: { name: string, cpf: string, phone: string }, 
-  eventId: string
+  eventId?: string
 ): Partial<Guest>[] => {
   return rows.map(row => {
     const id = crypto.randomUUID();
@@ -75,11 +75,11 @@ export const parseExcelGuestsWithMapping = (
       phone: mapping.phone ? String(row[mapping.phone] || '').trim() : '',
       email: '',
       checkedIn: false,
-      qrCodeData: JSON.stringify({
+      qrCodeData: eventId ? JSON.stringify({
         eventId,
         guestId: id,
         valid: true
-      })
+      }) : ''
     };
   }).filter(g => g.name || g.cpf || g.phone);
 };
@@ -92,7 +92,7 @@ export const autoDetectColumns = (headers: string[]) => {
   };
 };
 
-export const parseExcelGuests = async (file: File, eventId: string): Promise<Partial<Guest>[]> => {
+export const parseExcelGuests = async (file: File, eventId?: string): Promise<Partial<Guest>[]> => {
   // Legacy support for backward compatibility if needed, but we'll use the new flow
   const { headers, rows } = await getExcelData(file);
   const mapping = autoDetectColumns(headers);

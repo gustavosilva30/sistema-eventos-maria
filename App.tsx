@@ -326,11 +326,7 @@ const App: React.FC = () => {
     
     if (!file) return;
 
-    if (!targetEventId) {
-      alert("Por favor, selecione um evento antes de importar.");
-      e.target.value = '';
-      return;
-    }
+    // We no longer require an event to import; if missing, it goes to registry only
 
     try {
       const data = await getExcelData(file);
@@ -353,7 +349,7 @@ const App: React.FC = () => {
 
   const handleFinalImport = async () => {
     const targetEventId = selectedEvent?.id || newGuest.targetEventId;
-    if (!importData || !targetEventId) return;
+    if (!importData) return;
 
     try {
       setIsImporting(true);
@@ -426,8 +422,8 @@ const App: React.FC = () => {
     // Determine target event: either from selectedEvent (Event Details view) or selected dropdown (Guests view)
     const targetEventId = selectedEvent?.id || newGuest.targetEventId;
 
-    if (!targetEventId || !newGuest.name || !newGuest.cpf || !newGuest.phone) {
-      alert("Por favor, preencha todos os campos obrigatórios e selecione um evento.");
+    if (!newGuest.name || !newGuest.cpf || !newGuest.phone) {
+      alert("Por favor, preencha os campos obrigatórios (Nome, CPF, Telefone).");
       return;
     }
 
@@ -973,7 +969,8 @@ const App: React.FC = () => {
                 </tr>
               )}
               {guests.map(guest => {
-                const eventName = events.find(e => e.id === guest.eventId)?.name || 'Unknown Event';
+                const event = events.find(e => e.id === guest.eventId);
+                const eventName = event?.name || 'Sem Evento';
                 return (
                   <tr key={guest.id} className={`hover:bg-slate-50 transition-colors ${selectedGuestIds.has(guest.id) ? 'bg-indigo-50/30' : ''}`}>
                     <td className="px-6 py-4">
@@ -1018,9 +1015,13 @@ const App: React.FC = () => {
                             <QrCode size={18} />
                           </button>
                         ) : (
-                          <div className="p-1 opacity-20 cursor-not-allowed" title="Convidado sem Evento">
-                             <QrCode size={18} />
-                          </div>
+                          <button 
+                            onClick={() => { setNewGuest(guest); setShowGuestModal(true); }} 
+                            className="p-1 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors" 
+                            title="Vincular a Evento"
+                          >
+                            <Calendar size={18} />
+                          </button>
                         )}
                         <button onClick={() => { setNewGuest(guest); setShowGuestModal(true); }} className="p-1 hover:text-indigo-600 transition-colors" title="Editar Convidado">
                           <Settings size={18} />
@@ -1758,9 +1759,8 @@ const App: React.FC = () => {
                 <label className="block text-sm font-medium text-slate-700 mb-1">Selecionar Evento</label>
                 <select 
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  value={newGuest.targetEventId || ''}
+                  value={newGuest.targetEventId || newGuest.eventId || ''}
                   onChange={e => setNewGuest({...newGuest, targetEventId: e.target.value})}
-                  required
                 >
                   <option value="">-- Escolha o Evento --</option>
                   {events.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
