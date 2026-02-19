@@ -509,20 +509,27 @@ const App: React.FC = () => {
 
   const handleShareTicket = async (guest: Guest) => {
     const ticketElement = document.getElementById('digital-ticket');
-    if (!ticketElement) return;
+    if (!ticketElement) {
+      console.error('Ticket element #digital-ticket not found in DOM');
+      alert('Erro: Elemento do ticket não encontrado.');
+      return;
+    }
+
+    console.log('Starting ticket generation for:', guest.name);
 
     try {
       // Small delay to ensure any images are rendered
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       const canvas = await html2canvas(ticketElement, {
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
-        scale: 3, // Higher scale for better quality
-        logging: false
+        scale: 3,
+        logging: true // Enable logging for debugging
       });
       
+      console.log('Canvas generated successfully');
       const image = canvas.toDataURL('image/png', 1.0);
       
       // Check if Web Share API is available for files
@@ -549,11 +556,14 @@ const App: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       
-      // Notify user on fallback
       alert('Seu ticket foi gerado! Agora você pode enviá-lo como imagem para o convidado.');
     } catch (err) {
-      console.error('Error generating ticket image:', err);
-      alert('Erro ao gerar imagem do ticket. Verifique as permissões de imagem.');
+      console.error('CRITICAL Error generating ticket image:', err);
+      if (err instanceof Error) {
+        console.error('Error message:', err.message);
+        console.error('Error stack:', err.stack);
+      }
+      alert('Erro ao gerar imagem do ticket. Verifique as permissões de imagem e tente novamente.');
     }
   };
 
