@@ -509,18 +509,24 @@ const App: React.FC = () => {
     if (!ticketElement) return;
 
     try {
+      // Small delay to ensure any images are rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const canvas = await html2canvas(ticketElement, {
         useCORS: true,
+        allowTaint: false,
         backgroundColor: '#ffffff',
-        scale: 2
+        scale: 3, // Higher scale for better quality
+        logging: false
       });
       
-      const image = canvas.toDataURL('image/png');
+      const image = canvas.toDataURL('image/png', 1.0);
       
       // Check if Web Share API is available for files
       if (navigator.share && navigator.canShare) {
-        const blob = await (await fetch(image)).blob();
-        const file = new File([blob], `ticket-${guest.name}.png`, { type: 'image/png' });
+        const response = await fetch(image);
+        const blob = await response.blob();
+        const file = new File([blob], `ticket-${guest.name.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
         
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -534,13 +540,17 @@ const App: React.FC = () => {
       
       // Fallback: Download image
       const link = document.createElement('a');
-      link.download = `ticket-${guest.name}.png`;
+      link.download = `ticket-${guest.name.replace(/\s+/g, '_')}.png`;
       link.href = image;
+      document.body.appendChild(link);
       link.click();
-      alert('Ticket gerado! Se estiver no computador, envie a imagem baixada para o convidado.');
+      document.body.removeChild(link);
+      
+      // Notify user on fallback
+      alert('Seu ticket foi gerado! Agora você pode enviá-lo como imagem para o convidado.');
     } catch (err) {
       console.error('Error generating ticket image:', err);
-      alert('Erro ao gerar imagem do ticket.');
+      alert('Erro ao gerar imagem do ticket. Verifique as permissões de imagem.');
     }
   };
 
@@ -1393,7 +1403,11 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="w-full h-32 bg-slate-100 rounded-xl mb-6 overflow-hidden border border-slate-100">
-                  <img src={events.find(e => e.id === showQRModal.eventId)?.imageUrl} alt="Event" className="w-full h-full object-cover" />
+                  <img src={events.find(e => e.id === showQRModal.eventId)?.imageUrl} 
+                    alt="Event" 
+                    className="w-full h-full object-cover" 
+                    crossOrigin="anonymous" 
+                  />
                 </div>
                 
                 <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-6">
@@ -1441,11 +1455,7 @@ const App: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <button 
-                  onClick={() => {
-                    const event = events.find(e => e.id === showQRModal.eventId);
-                    const msg = `Olá ${showQRModal.name}, seu ticket para o evento ${event?.name} está disponível! Link: ${window.location.origin}`;
-                    window.open(`https://wa.me/${showQRModal.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                  }} 
+                  onClick={() => handleShareTicket(showQRModal)} 
                   className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-medium text-sm transition-all"
                 >
                   <MessageCircle size={18} /> WhatsApp
