@@ -62,25 +62,6 @@ const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
         {/* Card Container */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8 slide-up" style={{ animationDelay: '0.1s' }}>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {isSignUp && (
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-300 ml-1">Nome Completo</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <UserPlus className="h-5 w-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
-                  </div>
-                  <input
-                    type="text"
-                    required={isSignUp}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                    placeholder="Como deseja ser chamado?"
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-300 ml-1">E-mail Corporativo</label>
               <div className="relative group">
@@ -101,9 +82,7 @@ const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-sm font-semibold text-slate-300">Senha de Acesso</label>
-                {!isSignUp && (
-                  <button type="button" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Esqueceu a senha?</button>
-                )}
+                <button type="button" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Esqueceu a senha?</button>
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -128,11 +107,7 @@ const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
             </div>
 
             {error && (
-              <div className={`p-4 rounded-xl text-sm font-medium animate-in fade-in zoom-in duration-200 ${
-                error.includes('Cadastro realizado') 
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-              }`}>
+              <div className="p-4 rounded-xl text-sm font-medium animate-in fade-in zoom-in duration-200 bg-rose-500/10 text-rose-400 border border-rose-500/20">
                 {error}
               </div>
             )}
@@ -146,46 +121,12 @@ const Login: React.FC<LoginProps> = ({ onAuthSuccess }) => {
                 <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span>{isSignUp ? 'Criar Conta Agora' : 'Acessar Painel'}</span>
+                  <span>Acessar Painel</span>
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-700"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-[#1e293b] px-3 text-slate-500 font-semibold tracking-wider">ou continue com</span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError('');
-              setName('');
-              setEmail('');
-              setPassword('');
-            }}
-            className="w-full py-4 px-6 border border-slate-700 hover:bg-white/5 rounded-xl text-slate-300 font-semibold transition-all flex items-center justify-center gap-2"
-          >
-            {isSignUp ? (
-              <>
-                <LogIn size={20} />
-                <span>Voltar para o Login</span>
-              </>
-            ) : (
-              <>
-                <UserPlus size={20} />
-                <span>Criar Nova Conta Administrativa</span>
-              </>
-            )}
-          </button>
         </div>
 
         {/* Footer info */}

@@ -87,6 +87,7 @@ const App: React.FC = () => {
   const [importData, setImportData] = useState<{ headers: string[], rows: any[] } | null>(null);
   const [columnMapping, setColumnMapping] = useState({ name: '', cpf: '', phone: '' });
   const [isImporting, setIsImporting] = useState(false);
+  const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
 
   // Check authentication state on mount
   useEffect(() => {
@@ -620,6 +621,24 @@ const App: React.FC = () => {
     }
   };
 
+
+  const toggleGuestSelection = (id: string) => {
+    setSelectedGuestIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedGuestIds.size === guests.length && guests.length > 0) {
+      setSelectedGuestIds(new Set());
+    } else {
+      setSelectedGuestIds(new Set(guests.map(g => g.id)));
+    }
+  };
+
   const handleShareTicket = async (guest: Guest) => {
     // We now use the public link strategy for better compatibility
     const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
@@ -751,10 +770,52 @@ const App: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {selectedGuestIds.size > 0 && (
+          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+                {selectedGuestIds.size}
+              </div>
+              <div>
+                <div className="font-bold text-indigo-900 text-sm">Convidados Selecionados</div>
+                <div className="text-[10px] text-indigo-600 font-medium">{selectedGuestIds.size} {selectedGuestIds.size === 1 ? 'selecionado' : 'selecionados'}</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setSelectedGuestIds(new Set())}
+                className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                title="Limpar Seleção"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => {
+                  if (confirm(`Deseja excluir os ${selectedGuestIds.size} convidados selecionados?`)) {
+                    alert("A exclusão em massa está sendo preparada!");
+                  }
+                }}
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm shadow-rose-200 transition-all flex items-center gap-2"
+                title="Excluir Selecionados"
+              >
+                <Trash2 size={14} /> Excluir
+              </button>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
               <tr>
+                <th className="px-6 py-4 w-10">
+                  <input 
+                    type="checkbox" 
+                    title="Selecionar Todos"
+                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    checked={selectedGuestIds.size === guests.length && guests.length > 0}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
                 <th className="px-6 py-4">Nome</th>
                 <th className="px-6 py-4">Evento</th>
                 <th className="px-6 py-4">Contato</th>
@@ -773,7 +834,16 @@ const App: React.FC = () => {
               {guests.map(guest => {
                 const eventName = events.find(e => e.id === guest.eventId)?.name || 'Unknown Event';
                 return (
-                  <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={guest.id} className={`hover:bg-slate-50 transition-colors ${selectedGuestIds.has(guest.id) ? 'bg-indigo-50/30' : ''}`}>
+                    <td className="px-6 py-4">
+                      <input 
+                        type="checkbox" 
+                        title={`Selecionar ${guest.name}`}
+                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        checked={selectedGuestIds.has(guest.id)}
+                        onChange={() => toggleGuestSelection(guest.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{guest.name}</div>
                       <div className="text-xs text-slate-400 font-mono">{guest.cpf}</div>
