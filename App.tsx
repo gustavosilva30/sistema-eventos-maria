@@ -487,6 +487,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleBulkDeleteGuests = async () => {
+    const count = selectedGuestIds.size;
+    if (confirm(`Deseja realmente excluir os ${count} convidados selecionados? Esta ação não pode ser desfeita.`)) {
+      try {
+        await Storage.deleteGuests(Array.from(selectedGuestIds));
+        
+        // Success feedback
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        // Clear selection
+        setSelectedGuestIds(new Set());
+        
+        // Refresh lists
+        if (view === 'EVENT_DETAILS' && selectedEvent) {
+          const guestsData = await Storage.getGuestsByEventId(selectedEvent.id);
+          setGuests(guestsData);
+        } else {
+          const guestsData = await Storage.getAllGuests();
+          setGuests(guestsData);
+        }
+
+        alert(`${count} convidados excluídos com sucesso.`);
+      } catch (error) {
+        console.error('Error in bulk delete:', error);
+        alert('Erro ao excluir convidados em massa.');
+      }
+    }
+  };
+
   const handleAddReminder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newReminder.text) return;
@@ -790,11 +823,7 @@ const App: React.FC = () => {
                 Cancelar
               </button>
               <button 
-                onClick={() => {
-                  if (confirm(`Deseja excluir os ${selectedGuestIds.size} convidados selecionados?`)) {
-                    alert("A exclusão em massa está sendo preparada!");
-                  }
-                }}
+                onClick={handleBulkDeleteGuests}
                 className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm shadow-rose-200 transition-all flex items-center gap-2"
                 title="Excluir Selecionados"
               >

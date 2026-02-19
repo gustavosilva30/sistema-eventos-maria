@@ -208,6 +208,18 @@ export const deleteGuest = async (id: string): Promise<void> => {
   }
 };
 
+export const deleteGuests = async (ids: string[]): Promise<void> => {
+  const { error } = await supabase
+    .from('guests')
+    .delete()
+    .in('id', ids);
+
+  if (error) {
+    console.error('Error deleting guests:', error);
+    throw error;
+  }
+};
+
 export const getGuestById = async (id: string): Promise<Guest | null> => {
   const { data, error } = await supabase
     .from('guests')
