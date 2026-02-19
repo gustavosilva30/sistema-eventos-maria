@@ -1416,10 +1416,10 @@ const App: React.FC = () => {
         {showQRModal && (
           <div className="flex flex-col items-center justify-center">
             <div className="fixed top-0 left-0 pointer-events-none z-[-100] opacity-[0.001]">
-              <div id="digital-ticket" className="bg-white w-[350px] p-6 rounded-2xl border-2 border-slate-100 flex flex-col items-center">
+              <div id="digital-ticket" className="bg-white w-[350px] p-6 rounded-2xl border-2 border-[#f1f5f9] flex flex-col items-center">
                 <div className="w-full flex justify-between items-center mb-6">
-                  <div className="font-bold text-xl text-indigo-600">EventMaster AI</div>
-                  <div className="text-[10px] text-slate-400 font-mono uppercase tracking-widest px-2 py-1 bg-slate-50 rounded">Digital Pass</div>
+                  <div className="font-bold text-xl text-[#4f46e5]">EventMaster AI</div>
+                  <div className="text-[10px] text-[#94a3b8] font-mono uppercase tracking-widest px-2 py-1 bg-[#f8fafc] rounded">Digital Pass</div>
                 </div>
                 
                 <div className="w-full h-32 bg-slate-100 rounded-xl mb-6 overflow-hidden border border-slate-100">
@@ -1430,27 +1430,27 @@ const App: React.FC = () => {
                   />
                 </div>
                 
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-6">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-[#f1f5f9] mb-6">
                   <QRCode value={showQRModal.qrCodeData} size={160} level="M" fgColor="#1e293b" />
                 </div>
                 
                 <div className="w-full text-center space-y-1 mb-6">
-                  <h3 className="text-xl font-bold text-slate-900">{showQRModal.name}</h3>
-                  <p className="text-slate-500 text-xs font-mono">{showQRModal.cpf}</p>
+                  <h3 className="text-xl font-bold text-[#0f172a]">{showQRModal.name}</h3>
+                  <p className="text-[#64748b] text-xs font-mono">{showQRModal.cpf}</p>
                 </div>
                 
-                <div className="w-full pt-4 border-t border-dashed border-slate-200 grid grid-cols-2 gap-4">
+                <div className="w-full pt-4 border-t border-dashed border-[#e2e8f0] grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Evento</div>
-                    <div className="text-sm font-bold text-slate-800 truncate">{events.find(e => e.id === showQRModal.eventId)?.name}</div>
+                    <div className="text-[10px] text-[#94a3b8] uppercase font-bold tracking-tight">Evento</div>
+                    <div className="text-sm font-bold text-[#1e293b] truncate">{events.find(e => e.id === showQRModal.eventId)?.name}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Data</div>
-                    <div className="text-sm font-bold text-slate-800">{new Date(events.find(e => e.id === showQRModal.eventId)?.date || '').toLocaleDateString()}</div>
+                    <div className="text-[10px] text-[#94a3b8] uppercase font-bold tracking-tight">Data</div>
+                    <div className="text-sm font-bold text-[#1e293b]">{new Date(events.find(e => e.id === showQRModal.eventId)?.date || '').toLocaleDateString()}</div>
                   </div>
                 </div>
                 
-                <div className="mt-8 text-[9px] text-slate-300 text-center uppercase tracking-widest font-medium">
+                <div className="mt-8 text-[9px] text-[#cbd5e1] text-center uppercase tracking-widest font-medium">
                   Apresente este QR Code na entrada para validar seu acesso
                 </div>
               </div>
