@@ -81,23 +81,37 @@ const App: React.FC = () => {
   // Check authentication state on mount
   useEffect(() => {
     const checkAuth = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const ticketId = urlParams.get('ticket');
+
       try {
         const user = await getCurrentUser();
         
         if (user) {
           setAuthUser(user);
           setIsAuthenticated(true);
-          setView('DASHBOARD');
-          await loadInitialData();
+          // Only change view if NOT loading a public ticket
+          if (!ticketId) {
+            setView('DASHBOARD');
+            await loadInitialData();
+          } else {
+            // Even if logged in, we still need initial data for other things
+            await loadInitialData();
+          }
         } else {
           setAuthUser(null);
           setIsAuthenticated(false);
-          setView('LOGIN');
+          // Only change to LOGIN if NOT loading a public ticket
+          if (!ticketId) {
+            setView('LOGIN');
+          }
         }
       } catch (error) {
         setAuthUser(null);
         setIsAuthenticated(false);
-        setView('LOGIN');
+        if (!ticketId) {
+          setView('LOGIN');
+        }
       }
     };
     
@@ -116,12 +130,17 @@ const App: React.FC = () => {
         if (user) {
           setAuthUser(user);
           setIsAuthenticated(true);
-          setView('DASHBOARD');
-          loadInitialData();
+          // Only redirect to Dashboard if we are NOT in public ticket view
+          if (view !== 'PUBLIC_TICKET') {
+            setView('DASHBOARD');
+            loadInitialData();
+          }
         } else {
           setAuthUser(null);
           setIsAuthenticated(false);
-          setView('LOGIN');
+          if (view !== 'PUBLIC_TICKET') {
+            setView('LOGIN');
+          }
         }
       });
       
