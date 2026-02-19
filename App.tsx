@@ -1040,15 +1040,11 @@ const App: React.FC = () => {
 
         {/* Dynamic View Content */}
         <main className="flex-1 overflow-auto relative">
-           <div className="p-6">
-             <h1 className="text-2xl font-bold mb-6">Bem-vindo ao EventMaster AI! 🎉</h1>
-             <p className="text-slate-600 mb-4">Sistema de gerenciamento de eventos está funcionando!</p>
-             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-               <p className="text-green-800">✅ Autenticação funcionando</p>
-               <p className="text-green-800">✅ Deploy realizado com sucesso</p>
-               <p className="text-green-800">✅ Aplicação carregada</p>
-             </div>
-           </div>
+            {view === 'DASHBOARD' && renderDashboard()}
+            {view === 'GUESTS' && renderGuests()}
+            {view === 'EVENT_DETAILS' && renderEventDetails()}
+            {view === 'REMINDERS' && renderReminders()}
+            {view === 'SETTINGS' && renderSettings()}
         </main>
       </div>
       
