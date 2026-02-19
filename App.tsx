@@ -312,7 +312,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const guestId = crypto.randomUUID();
+    const guestId = newGuest.id || crypto.randomUUID();
     const qrPayload: QRCodePayload = {
       eventId: targetEventId,
       guestId: guestId,
@@ -326,8 +326,8 @@ const App: React.FC = () => {
       cpf: newGuest.cpf,
       phone: newGuest.phone,
       email: newGuest.email || '',
-      checkedIn: false,
-      qrCodeData: JSON.stringify(qrPayload),
+      checkedIn: newGuest.checkedIn || false,
+      qrCodeData: newGuest.qrCodeData || JSON.stringify(qrPayload),
     };
 
     try {
@@ -347,6 +347,26 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Error saving guest:', error);
       alert('Erro ao salvar convidado. Tente novamente.');
+    }
+  };
+
+  const handleDeleteGuest = async (id: string) => {
+    if (confirm('Tem certeza que deseja remover este convidado?')) {
+      try {
+        await Storage.deleteGuest(id);
+        
+        // Refresh lists
+        if (view === 'EVENT_DETAILS' && selectedEvent) {
+           const guestsData = await Storage.getGuestsByEventId(selectedEvent.id);
+           setGuests(guestsData);
+        } else {
+           const guestsData = await Storage.getAllGuests();
+           setGuests(guestsData);
+        }
+      } catch (error) {
+        console.error('Error deleting guest:', error);
+        alert('Erro ao excluir convidado.');
+      }
     }
   };
 
@@ -647,17 +667,17 @@ const App: React.FC = () => {
               {guests.map(guest => {
                 const eventName = events.find(e => e.id === guest.eventId)?.name || 'Unknown Event';
                 return (
-                  <tr key={guest.id} className="hover:bg-slate-50">
+                  <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">{guest.name}</div>
-                      <div className="text-xs text-slate-400">{guest.cpf}</div>
+                      <div className="text-xs text-slate-400 font-mono">{guest.cpf}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700">
                         {eventName}
                       </span>
                     </td>
-                    <td className="px-6 py-4">{guest.phone}</td>
+                    <td className="px-6 py-4 text-xs font-mono">{guest.phone}</td>
                     <td className="px-6 py-4">
                       {guest.checkedIn ? (
                         <div className="flex flex-col">
@@ -669,14 +689,23 @@ const App: React.FC = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-slate-400 text-xs">Pendente</span>
+                        <span className="text-slate-400 text-xs flex items-center gap-1 italic">
+                          <Clock size={12} /> Aguardando
+                        </span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                       <div className="flex justify-end gap-2">
-                          <button onClick={() => setShowQRModal(guest)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg"><QrCode size={16} /></button>
-                          <button onClick={() => sendWhatsApp(guest)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><MessageCircle size={16} /></button>
-                       </div>
+                      <div className="flex justify-end gap-2 text-slate-400">
+                        <button onClick={() => setShowQRModal(guest)} className="p-1 hover:text-indigo-600 transition-colors" title="Ver Ticket">
+                          <QrCode size={18} />
+                        </button>
+                        <button onClick={() => { setNewGuest(guest); setShowGuestModal(true); }} className="p-1 hover:text-indigo-600 transition-colors" title="Editar Convidado">
+                          <Settings size={18} />
+                        </button>
+                        <button onClick={() => handleDeleteGuest(guest.id)} className="p-1 hover:text-red-600 transition-colors" title="Excluir Convidado">
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -990,9 +1019,34 @@ const App: React.FC = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                           <button onClick={() => setShowQRModal(guest)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg" title="Ver Ticket"><QrCode size={18} /></button>
-                           <button onClick={() => sendWhatsApp(guest)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Enviar WhatsApp"><MessageCircle size={18} /></button>
+                        <div className="flex items-center justify-end gap-2 text-slate-400">
+                           <button onClick={() => setShowQRModal(guest)} className="p-1 hover:text-indigo-600 transition-colors" title="Ver Ticket">
+                             <QrCode size={18} />
+                           </button>
+                           <button 
+                             onClick={() => {
+                               const msg = `Olá ${guest.name}, seu ticket para o evento ${selectedEvent.name} está disponível! Link: ${window.location.origin}`;
+                               window.open(`https://wa.me/${guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                             }} 
+                             className="p-1 hover:text-green-600 transition-colors" 
+                             title="Enviar WhatsApp"
+                           >
+                             <MessageCircle size={18} />
+                           </button>
+                           <button 
+                             onClick={() => { setNewGuest(guest); setShowGuestModal(true); }} 
+                             className="p-1 hover:text-indigo-600 transition-colors" 
+                             title="Editar Convidado"
+                           >
+                             <Settings size={18} />
+                           </button>
+                           <button 
+                             onClick={() => handleDeleteGuest(guest.id)} 
+                             className="p-1 hover:text-red-600 transition-colors" 
+                             title="Excluir Convidado"
+                           >
+                             <Trash2 size={18} />
+                           </button>
                         </div>
                       </td>
                     </tr>
@@ -1266,8 +1320,8 @@ const App: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Add Guest Modal */}
-      <Modal isOpen={showGuestModal} onClose={() => setShowGuestModal(false)} title="Cadastrar Convidado">
+      {/* Guest Modal */}
+      <Modal isOpen={showGuestModal} onClose={() => setShowGuestModal(false)} title={newGuest.id ? "Editar Convidado" : "Cadastrar Convidado"}>
         <form onSubmit={handleAddGuest} className="space-y-4">
           {!selectedEvent && (
              <div>
@@ -1318,7 +1372,11 @@ const App: React.FC = () => {
               />
             </div>
           </div>
-          <div className="pt-2"><button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">Adicionar Convidado</button></div>
+          <div className="pt-2">
+            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-100 transition-all active:scale-95">
+              {newGuest.id ? 'Salvar Alterações' : 'Adicionar Convidado'}
+            </button>
+          </div>
         </form>
       </Modal>
 

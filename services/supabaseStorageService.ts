@@ -172,6 +172,18 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
   }
 };
 
+export const deleteGuest = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('guests')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting guest:', error);
+    throw error;
+  }
+};
+
 export const checkInGuest = async (
   guestId: string, 
   authorizedBy?: string, 
