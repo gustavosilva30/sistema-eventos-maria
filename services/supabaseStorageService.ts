@@ -26,6 +26,30 @@ export const getEvents = async (): Promise<Event[]> => {
   }));
 };
 
+export const getEventById = async (id: string): Promise<Event | null> => {
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching event by ID:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    date: data.date,
+    location: data.location,
+    description: data.description,
+    imageUrl: data.image_url,
+    attractions: data.attractions,
+    gallery: data.gallery
+  };
+};
+
 export const saveEvent = async (event: Event): Promise<void> => {
   const eventData = {
     id: event.id,
@@ -182,6 +206,33 @@ export const deleteGuest = async (id: string): Promise<void> => {
     console.error('Error deleting guest:', error);
     throw error;
   }
+};
+
+export const getGuestById = async (id: string): Promise<Guest | null> => {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching guest by ID:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    eventId: data.event_id,
+    name: data.name,
+    cpf: data.cpf,
+    phone: data.phone,
+    email: data.email,
+    checkedIn: data.checked_in,
+    checkInTime: data.check_in_time,
+    checkInMethod: data.check_in_method as 'QR' | 'MANUAL',
+    authorizedBy: data.authorized_by,
+    qrCodeData: data.qr_code_data
+  };
 };
 
 export const checkInGuest = async (

@@ -120,4 +120,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'users') THEN
         CREATE POLICY "Enable all operations for authenticated users" ON users FOR ALL USING (auth.role() = 'authenticated');
     END IF;
+
+    -- Public access for specific views
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public select for events' AND tablename = 'events') THEN
+        CREATE POLICY "Allow public select for events" ON events FOR SELECT TO anon USING (true);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public select for guests' AND tablename = 'guests') THEN
+        CREATE POLICY "Allow public select for guests" ON guests FOR SELECT TO anon USING (true);
+    END IF;
 END $$;

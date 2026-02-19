@@ -75,6 +75,8 @@ const App: React.FC = () => {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [ticketImage, setTicketImage] = useState<string | null>(null);
+  const [publicTicketData, setPublicTicketData] = useState<{ guest: Guest, event: Event } | null>(null);
+  const [isLoadingPublic, setIsLoadingPublic] = useState(false);
 
   // Check authentication state on mount
   useEffect(() => {
@@ -101,6 +103,13 @@ const App: React.FC = () => {
     
     checkAuth();
     
+    // Check for public ticket link
+    const urlParams = new URLSearchParams(window.location.search);
+    const ticketId = urlParams.get('ticket');
+    if (ticketId) {
+      handleLoadPublicTicket(ticketId);
+    }
+    
     // Listen for auth changes
     try {
       const { data: { subscription } } = onAuthStateChange((user) => {
@@ -121,6 +130,32 @@ const App: React.FC = () => {
       console.error('Error setting up auth listener:', error);
     }
   }, []);
+
+  const handleLoadPublicTicket = async (id: string) => {
+    setIsLoadingPublic(true);
+    setView('PUBLIC_TICKET');
+    try {
+      const guestData = await Storage.getGuestById(id);
+      if (guestData) {
+        const eventData = await Storage.getEventById(guestData.eventId);
+        if (eventData) {
+          setPublicTicketData({ guest: guestData, event: eventData });
+        } else {
+          alert('Evento não encontrado para este ticket.');
+          setView('LOGIN');
+        }
+      } else {
+        alert('Ticket não encontrado ou inválido.');
+        setView('LOGIN');
+      }
+    } catch (error) {
+      console.error('Error loading public ticket:', error);
+      alert('Erro ao carregar o ticket. Verifique sua conexão.');
+      setView('LOGIN');
+    } finally {
+      setIsLoadingPublic(false);
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -508,63 +543,33 @@ const App: React.FC = () => {
   };
 
   const handleShareTicket = async (guest: Guest) => {
-    const ticketElement = document.getElementById('digital-ticket');
-    if (!ticketElement) {
-      console.error('Ticket element #digital-ticket not found in DOM');
-      alert('Erro: Elemento do ticket não encontrado.');
-      return;
-    }
-
-    console.log('Starting ticket generation for:', guest.name);
-
-    try {
-      // Small delay to ensure any images are rendered
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const canvas = await html2canvas(ticketElement, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#ffffff',
-        scale: 3,
-        logging: true // Enable logging for debugging
-      });
-      
-      console.log('Canvas generated successfully');
-      const image = canvas.toDataURL('image/png', 1.0);
-      
-      // Check if Web Share API is available for files
-      if (navigator.share && navigator.canShare) {
-        const response = await fetch(image);
-        const blob = await response.blob();
-        const file = new File([blob], `ticket-${guest.name.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
-        
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'Seu Ticket - EventMaster AI',
-            text: `Aqui está o seu ingresso para o evento!`
-          });
-          return;
-        }
+    // We now use the public link strategy for better compatibility
+    const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Seu Ticket - EventMaster AI',
+          text: `Olá ${guest.name}! Aqui está o seu ingresso para o evento:`,
+          url: publicLink
+        });
+      } catch (err) {
+        console.error('Error sharing link:', err);
+        // Fallback to clipboard
+        copyToClipboard(publicLink);
       }
-      
-      // Fallback: Download image
-      const link = document.createElement('a');
-      link.download = `ticket-${guest.name.replace(/\s+/g, '_')}.png`;
-      link.href = image;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      alert('Seu ticket foi gerado! Agora você pode enviá-lo como imagem para o convidado.');
-    } catch (err) {
-      console.error('CRITICAL Error generating ticket image:', err);
-      if (err instanceof Error) {
-        console.error('Error message:', err.message);
-        console.error('Error stack:', err.stack);
-      }
-      alert('Erro ao gerar imagem do ticket. Verifique as permissões de imagem e tente novamente.');
+    } else {
+      copyToClipboard(publicLink);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Link do ticket copiado para a área de transferência! Envie para o convidado.');
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      alert(`Link do ticket: ${text}`);
+    });
   };
 
   const sendEmail = (guest: Guest) => {
@@ -1048,7 +1053,8 @@ const App: React.FC = () => {
                            </button>
                            <button 
                              onClick={() => {
-                               const msg = `Olá ${guest.name}, seu ticket para o evento ${selectedEvent.name} está disponível! Link: ${window.location.origin}`;
+                               const publicLink = `${window.location.origin}/?ticket=${guest.id}`;
+                               const msg = `Olá ${guest.name}, seu ticket para o evento está disponível! Link: ${publicLink}`;
                                window.open(`https://wa.me/${guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
                              }} 
                              className="p-1 hover:text-green-600 transition-colors" 
@@ -1094,6 +1100,87 @@ const App: React.FC = () => {
       {label}
     </button>
   );
+
+  // Show public ticket view (bypass auth)
+  if (view === 'PUBLIC_TICKET') {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        {isLoadingPublic ? (
+          <div className="flex flex-col items-center gap-4">
+             <Clock className="w-12 h-12 text-indigo-600 animate-spin" />
+             <p className="text-slate-600 font-medium font-sans">Carregando seu ticket...</p>
+          </div>
+        ) : publicTicketData ? (
+          <div className="max-w-[400px] w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="text-center mb-8">
+                <h1 className="text-2xl font-black text-slate-900 mb-2">Seu Ticket Digital</h1>
+                <p className="text-slate-500 text-sm font-sans">Apresente este código na entrada do evento</p>
+             </div>
+
+             <div 
+              className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 flex flex-col items-center"
+              style={{ backgroundColor: '#ffffff', color: '#1e293b' }}
+            >
+              <div className="w-full bg-indigo-600 p-6 flex justify-between items-center">
+                <div className="font-bold text-xl text-white">EventMaster AI</div>
+                <div className="text-[10px] text-indigo-100 font-mono uppercase tracking-widest px-2 py-1 bg-white/10 rounded-lg backdrop-blur-sm">Digital Pass</div>
+              </div>
+              
+              <div className="w-full p-8 flex flex-col items-center">
+                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 mb-8 w-full max-w-[240px] flex justify-center shadow-inner">
+                  <QRCode value={publicTicketData.guest.qrCodeData} size={200} level="M" fgColor="#1e293b" />
+                </div>
+                
+                <div className="w-full text-center space-y-2 mb-8">
+                  <h3 className="text-2xl font-black text-[#0f172a] tracking-tight">{publicTicketData.guest.name}</h3>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[#64748b] text-[10px] font-mono tracking-tighter">
+                    CPF: {publicTicketData.guest.cpf}
+                  </div>
+                </div>
+                
+                <div className="w-full py-6 border-y border-dashed grid grid-cols-2 gap-6" style={{ borderColor: '#e2e8f0' }}>
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase font-bold tracking-widest" style={{ color: '#94a3b8' }}>Evento</div>
+                    <div className="text-sm font-bold truncate leading-tight" style={{ color: '#1e293b' }}>{publicTicketData.event.name}</div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-[10px] uppercase font-bold tracking-widest" style={{ color: '#94a3b8' }}>Data</div>
+                    <div className="text-sm font-bold leading-tight" style={{ color: '#1e293b' }}>{new Date(publicTicketData.event.date).toLocaleDateString()}</div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 text-[10px] text-slate-400 text-center uppercase tracking-widest font-bold leading-relaxed px-4">
+                  Valide este ticket na recepção para garantir seu acesso
+                </div>
+              </div>
+              
+              <div className="w-full bg-slate-50 p-4 border-t border-slate-100 flex justify-center">
+                 <p className="text-[9px] text-slate-400 font-medium">© 2026 EventMaster AI • Sistema de Eventos Premium</p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => window.print()}
+              className="mt-8 w-full py-4 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            >
+              <Calendar size={18} /> Imprimir / Salvar PDF
+            </button>
+            <button 
+              onClick={() => setView('LOGIN')}
+              className="mt-4 w-full py-2 text-indigo-600 font-medium text-xs hover:underline"
+            >
+              Voltar para o Início
+            </button>
+          </div>
+        ) : (
+          <div className="text-center">
+             <p className="text-red-500 font-bold mb-4">Ticket não encontrado.</p>
+             <button onClick={() => setView('LOGIN')} className="text-indigo-600 font-medium underline">Ir para Login</button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {

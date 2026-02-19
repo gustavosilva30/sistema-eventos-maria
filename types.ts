@@ -43,7 +43,7 @@ export interface QRCodePayload {
   valid: boolean;
 }
 
-export type ViewState = 'DASHBOARD' | 'CREATE_EVENT' | 'EVENT_DETAILS' | 'SCANNER' | 'GUESTS' | 'REMINDERS' | 'SETTINGS' | 'LOGIN';
+export type ViewState = 'DASHBOARD' | 'CREATE_EVENT' | 'EVENT_DETAILS' | 'SCANNER' | 'GUESTS' | 'REMINDERS' | 'SETTINGS' | 'LOGIN' | 'PUBLIC_TICKET';
 
 export interface AuthUser {
   id: string;
