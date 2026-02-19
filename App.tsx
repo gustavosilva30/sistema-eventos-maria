@@ -186,7 +186,10 @@ const App: React.FC = () => {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEvent.name || !newEvent.date || !newEvent.location) return;
+    if (!newEvent.name && !newEvent.location && !newEvent.description) {
+       alert("Por favor, preencha pelo menos o nome ou descrição do evento.");
+       return;
+    }
 
     const event: Event = {
       id: newEvent.id || crypto.randomUUID(),
@@ -1239,8 +1242,8 @@ const App: React.FC = () => {
         <form onSubmit={handleCreateEvent} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Evento</label>
-            <input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Gala de Verão"
+            <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Gala de Verão (Obrigatório)"
               value={newEvent.name || ''}
               onChange={e => setNewEvent({...newEvent, name: e.target.value})}
             />
@@ -1248,15 +1251,15 @@ const App: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Data</label>
-              <input required type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              <input type="date" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                 value={newEvent.date || ''}
                 onChange={e => setNewEvent({...newEvent, date: e.target.value})}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Local</label>
-              <input required type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="Centro de Eventos"
+              <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Local do Evento"
                 value={newEvent.location || ''}
                 onChange={e => setNewEvent({...newEvent, location: e.target.value})}
               />
@@ -1326,7 +1329,15 @@ const App: React.FC = () => {
               onChange={e => setNewEvent({...newEvent, description: e.target.value})}
             />
           </div>
-          <div className="pt-2"><button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">{newEvent.id ? 'Salvar Alterações' : 'Criar Evento'}</button></div>
+          <div className="pt-2">
+            <button 
+              type="submit" 
+              disabled={isUploading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-medium py-2.5 rounded-lg shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              {isUploading ? <><Clock className="animate-spin" size={18} /> Processando Imagem...</> : (newEvent.id ? 'Salvar Alterações' : 'Criar Evento')}
+            </button>
+          </div>
         </form>
       </Modal>
 
