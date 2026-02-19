@@ -71,7 +71,7 @@ export const parseExcelGuestsWithMapping = (
       id,
       eventId,
       name: mapping.name ? String(row[mapping.name] || '').trim() : '',
-      cpf: mapping.cpf ? String(row[mapping.cpf] || '').trim() : '',
+      cpf: mapping.cpf ? (String(row[mapping.cpf] || '').trim() || null) : null,
       phone: mapping.phone ? String(row[mapping.phone] || '').trim() : '',
       email: '',
       checkedIn: false,

@@ -252,11 +252,11 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
     .from('registry')
     .upsert(registryMembers.map(m => ({
       name: m.name,
-      cpf: m.cpf,
+      cpf: m.cpf || null, // Convert empty to null
       phone: m.phone,
       email: m.email
     })), { onConflict: 'cpf' })
-    .select('id, cpf');
+    .select('id, cpf, name, phone');
 
   if (regError) {
     console.error('Error bulk saving to registry:', regError);
@@ -264,7 +264,9 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
   }
 
   // Map CPF to registry ID for guest linking
-  const cpfToRegId = new Map(regResult.map(r => [r.cpf, r.id]));
+  const cpfToRegId = new Map(regResult.filter(r => r.cpf).map(r => [r.cpf, r.id]));
+  // Map Name+Phone fallback for those without CPF
+  const namePhoneToRegId = new Map(regResult.map(r => [`${r.name}_${r.phone}`, r.id]));
 
   // 2. Bulk upsert participations only for those linked to an event
   const participations = newGuests.filter(g => g.eventId);
@@ -273,7 +275,7 @@ export const saveGuests = async (newGuests: Guest[]): Promise<void> => {
   const participationsData = participations.map(guest => ({
     id: guest.id,
     event_id: guest.eventId,
-    registry_id: cpfToRegId.get(guest.cpf),
+    registry_id: guest.cpf ? cpfToRegId.get(guest.cpf) : namePhoneToRegId.get(`${guest.name}_${guest.phone}`),
     name: guest.name,
     cpf: guest.cpf,
     phone: guest.phone,

@@ -18,12 +18,24 @@ CREATE TABLE IF NOT EXISTS events (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Registry table (CRM / Master List)
+CREATE TABLE IF NOT EXISTS registry (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    cpf TEXT UNIQUE, -- Logical primary key for de-duplication
+    phone TEXT NOT NULL,
+    email TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Guests table
 CREATE TABLE IF NOT EXISTS guests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    event_id UUID REFERENCES events(id) ON DELETE CASCADE,
+    registry_id UUID REFERENCES registry(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
-    cpf TEXT NOT NULL,
+    cpf TEXT,
     phone TEXT NOT NULL,
     email TEXT DEFAULT '',
     checked_in BOOLEAN DEFAULT FALSE,
@@ -59,6 +71,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_guests_event_id ON guests(event_id);
 CREATE INDEX IF NOT EXISTS idx_guests_checked_in ON guests(checked_in);
 CREATE INDEX IF NOT EXISTS idx_guests_cpf ON guests(cpf);
+CREATE INDEX IF NOT EXISTS idx_registry_cpf ON registry(cpf);
 CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 CREATE INDEX IF NOT EXISTS idx_reminders_completed ON reminders(completed);
 CREATE INDEX IF NOT EXISTS idx_reminders_date ON reminders(date);
@@ -94,6 +107,11 @@ BEGIN
         CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
             FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_registry_updated_at') THEN
+        CREATE TRIGGER update_registry_updated_at BEFORE UPDATE ON registry
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 END $$;
 
 -- Row Level Security (RLS) policies
@@ -101,6 +119,7 @@ ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registry ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations for authenticated users
 DO $$ 
@@ -119,6 +138,10 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'users') THEN
         CREATE POLICY "Enable all operations for authenticated users" ON users FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'registry') THEN
+        CREATE POLICY "Enable all operations for authenticated users" ON registry FOR ALL USING (auth.role() = 'authenticated');
     END IF;
 
     -- Public access for specific views
