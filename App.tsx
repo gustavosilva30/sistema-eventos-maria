@@ -442,7 +442,10 @@ const App: React.FC = () => {
       phone: newGuest.phone,
       email: newGuest.email || '',
       checkedIn: newGuest.checkedIn || false,
-      qrCodeData: newGuest.qrCodeData || JSON.stringify(qrPayload),
+      // Always regenerate QR if linked to a different event or if missing, or if guest was already checked in
+      qrCodeData: (newGuest.eventId === targetEventId && newGuest.qrCodeData && !newGuest.checkedIn) 
+        ? newGuest.qrCodeData 
+        : JSON.stringify(qrPayload),
     };
 
     try {
@@ -621,12 +624,11 @@ const App: React.FC = () => {
     }
 
     try {
-      // Fetch fresh data for global scan context
-      const allGuests = await Storage.getAllGuests();
-      const guest = allGuests.find(g => g.id === payload.guestId);
+      // Fetch fresh data for specific guest participation
+      const guest = await Storage.getGuestById(payload.guestId);
 
       if (!guest) {
-          setScanResult({ status: 'error', message: 'QR Code Inválido' }); // Guest not found
+          setScanResult({ status: 'error', message: 'QR Code Inválido' }); // Guest not found or deleted
           setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
           return;
       }

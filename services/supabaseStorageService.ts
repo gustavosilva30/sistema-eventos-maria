@@ -170,6 +170,34 @@ export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
   }));
 };
 
+export const getGuestById = async (id: string): Promise<Guest | null> => {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching guest by ID:', error);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    registryId: data.registry_id,
+    eventId: data.event_id,
+    name: data.name,
+    cpf: data.cpf,
+    phone: data.phone,
+    email: data.email,
+    checkedIn: data.checked_in,
+    checkInTime: data.check_in_time,
+    checkInMethod: data.check_in_method as 'QR' | 'MANUAL',
+    authorizedBy: data.authorized_by,
+    qrCodeData: data.qr_code_data
+  };
+};
+
 export const saveGuest = async (guest: Guest): Promise<void> => {
   // 1. Ensure the person is in the Registry first
   const registryId = await saveToRegistry({
@@ -341,33 +369,6 @@ export const deleteFromRegistry = async (id: string): Promise<void> => {
     console.error('Error deleting from registry:', error);
     throw error;
   }
-};
-
-export const getGuestById = async (id: string): Promise<Guest | null> => {
-  const { data, error } = await supabase
-    .from('guests')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error || !data) {
-    console.error('Error fetching guest by ID:', error);
-    return null;
-  }
-
-  return {
-    id: data.id,
-    eventId: data.event_id,
-    name: data.name,
-    cpf: data.cpf,
-    phone: data.phone,
-    email: data.email,
-    checkedIn: data.checked_in,
-    checkInTime: data.check_in_time,
-    checkInMethod: data.check_in_method as 'QR' | 'MANUAL',
-    authorizedBy: data.authorized_by,
-    qrCodeData: data.qr_code_data
-  };
 };
 
 export const checkInGuest = async (
