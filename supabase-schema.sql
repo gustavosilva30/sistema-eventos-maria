@@ -1,10 +1,11 @@
 -- EventMaster AI Database Schema for Supabase
+-- Versão Idempotente (Pode ser executado múltiplas vezes)
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Events table
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     date TEXT NOT NULL,
@@ -18,7 +19,7 @@ CREATE TABLE events (
 );
 
 -- Guests table
-CREATE TABLE guests (
+CREATE TABLE IF NOT EXISTS guests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -35,7 +36,7 @@ CREATE TABLE guests (
 );
 
 -- Reminders table
-CREATE TABLE reminders (
+CREATE TABLE IF NOT EXISTS reminders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     text TEXT NOT NULL,
     date TEXT,
@@ -45,7 +46,7 @@ CREATE TABLE reminders (
 );
 
 -- Users table (Admins/Staff)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('ADMIN', 'STAFF')),
@@ -55,12 +56,12 @@ CREATE TABLE users (
 );
 
 -- Indexes for better performance
-CREATE INDEX idx_guests_event_id ON guests(event_id);
-CREATE INDEX idx_guests_checked_in ON guests(checked_in);
-CREATE INDEX idx_guests_cpf ON guests(cpf);
-CREATE INDEX idx_events_date ON events(date);
-CREATE INDEX idx_reminders_completed ON reminders(completed);
-CREATE INDEX idx_reminders_date ON reminders(date);
+CREATE INDEX IF NOT EXISTS idx_guests_event_id ON guests(event_id);
+CREATE INDEX IF NOT EXISTS idx_guests_checked_in ON guests(checked_in);
+CREATE INDEX IF NOT EXISTS idx_guests_cpf ON guests(cpf);
+CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
+CREATE INDEX IF NOT EXISTS idx_reminders_completed ON reminders(completed);
+CREATE INDEX IF NOT EXISTS idx_reminders_date ON reminders(date);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -72,17 +73,28 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers to automatically update updated_at
-CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_events_updated_at') THEN
+        CREATE TRIGGER update_events_updated_at BEFORE UPDATE ON events
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_guests_updated_at') THEN
+        CREATE TRIGGER update_guests_updated_at BEFORE UPDATE ON guests
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_guests_updated_at BEFORE UPDATE ON guests
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_reminders_updated_at') THEN
+        CREATE TRIGGER update_reminders_updated_at BEFORE UPDATE ON reminders
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
 
-CREATE TRIGGER update_reminders_updated_at BEFORE UPDATE ON reminders
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
+        CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+            FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
 
 -- Row Level Security (RLS) policies
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
@@ -90,19 +102,22 @@ ALTER TABLE guests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reminders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Allow all operations for authenticated users (you can restrict this later)
-CREATE POLICY "Enable all operations for authenticated users" ON events
-    FOR ALL USING (auth.role() = 'authenticated');
+-- Allow all operations for authenticated users
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'events') THEN
+        CREATE POLICY "Enable all operations for authenticated users" ON events FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
 
-CREATE POLICY "Enable all operations for authenticated users" ON guests
-    FOR ALL USING (auth.role() = 'authenticated');
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'guests') THEN
+        CREATE POLICY "Enable all operations for authenticated users" ON guests FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
 
-CREATE POLICY "Enable all operations for authenticated users" ON reminders
-    FOR ALL USING (auth.role() = 'authenticated');
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'reminders') THEN
+        CREATE POLICY "Enable all operations for authenticated users" ON reminders FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
 
-CREATE POLICY "Enable all operations for authenticated users" ON users
-    FOR ALL USING (auth.role() = 'authenticated');
-
--- Optional: Allow public read access for events (if you want to make events public)
--- CREATE POLICY "Enable read access for all users" ON events
---     FOR SELECT USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Enable all operations for authenticated users' AND tablename = 'users') THEN
+        CREATE POLICY "Enable all operations for authenticated users" ON users FOR ALL USING (auth.role() = 'authenticated');
+    END IF;
+END $$;
