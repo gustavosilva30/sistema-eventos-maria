@@ -10,7 +10,7 @@ import Login from './components/Login';
 import { Event, Guest, ViewState, QRCodePayload, Reminder, User as AppUser, AuthUser } from './types';
 import * as Storage from './services/supabaseStorageService';
 import * as GeminiService from './services/geminiService';
-import { parseExcelGuests } from './services/excelUtils';
+import { parseExcelGuests, getExcelData, parseExcelGuestsWithMapping, autoDetectColumns } from './services/excelUtils';
 import { getCurrentUser, onAuthStateChange, signOut } from './services/authService';
 import * as SupabaseStorage from './services/supabaseStorage';
 import confetti from 'canvas-confetti';
@@ -81,6 +81,12 @@ const App: React.FC = () => {
   const [ticketImage, setTicketImage] = useState<string | null>(null);
   const [publicTicketData, setPublicTicketData] = useState<{ guest: Guest, event: Event } | null>(null);
   const [isLoadingPublic, setIsLoadingPublic] = useState(!!initialTicketId);
+
+  // Intelligent Import States
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [importData, setImportData] = useState<{ headers: string[], rows: any[] } | null>(null);
+  const [columnMapping, setColumnMapping] = useState({ name: '', cpf: '', phone: '' });
+  const [isImporting, setIsImporting] = useState(false);
 
   // Check authentication state on mount
   useEffect(() => {
@@ -319,18 +325,42 @@ const App: React.FC = () => {
 
     if (!targetEventId) {
       alert("Por favor, selecione um evento antes de importar.");
-      e.target.value = ''; // Reset input
+      e.target.value = '';
       return;
     }
 
     try {
-      const parsedGuests = await parseExcelGuests(file, targetEventId);
+      const data = await getExcelData(file);
+      if (data.rows.length === 0) {
+        alert("Planilha vazia.");
+        return;
+      }
+      
+      const detected = autoDetectColumns(data.headers);
+      setImportData(data);
+      setColumnMapping(detected);
+      setShowMappingModal(true);
+    } catch (err) {
+      console.error('Excel Read Error:', err);
+      alert("Erro ao ler a planilha. Verifique se o arquivo está no formato correto (.xlsx).");
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleFinalImport = async () => {
+    const targetEventId = selectedEvent?.id || newGuest.targetEventId;
+    if (!importData || !targetEventId) return;
+
+    try {
+      setIsImporting(true);
+      const parsedGuests = parseExcelGuestsWithMapping(importData.rows, columnMapping, targetEventId);
+      
       if (parsedGuests.length > 0) {
         await Storage.saveGuests(parsedGuests as Guest[]);
         
-        // Success feedback
         confetti({
-          particleCount: 100,
+          particleCount: 150,
           spread: 70,
           origin: { y: 0.6 }
         });
@@ -343,15 +373,18 @@ const App: React.FC = () => {
           const guestsData = await Storage.getAllGuests();
           setGuests(guestsData);
         }
+        
         alert(`${parsedGuests.length} convidados importados com sucesso!`);
+        setShowMappingModal(false);
+        setImportData(null);
       } else {
-        alert("Nenhum convidado encontrado na planilha. Verifique se há colunas com Nome/CPF/Telefone (ex: 'Nome', 'CPF', 'Telefone').");
+        alert("Nenhum convidado válido para importar com o mapeamento atual.");
       }
     } catch (err) {
-      console.error('Excel Import Error:', err);
-      alert("Erro ao ler a planilha. Verifique se o arquivo está no formato correto (.xlsx) e se contém os dados necessários.");
+      console.error('Final Import Error:', err);
+      alert("Erro ao salvar os convidados. Tente novamente.");
     } finally {
-      e.target.value = ''; // Clean up input for next use
+      setIsImporting(false);
     }
   };
 
@@ -1639,6 +1672,83 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Mapping Modal for Intelligent Import */}
+      <Modal 
+        isOpen={showMappingModal} 
+        onClose={() => setShowMappingModal(false)} 
+        title="Mapeamento de Colunas (Importação Inteligente)"
+      >
+        <div className="space-y-6">
+          <p className="text-sm text-slate-500 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
+            Encontramos <strong>{importData?.rows.length || 0}</strong> linhas na sua planilha. 
+            Relacione as colunas do seu arquivo com os campos do sistema.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                <Users size={16} className="text-indigo-500" /> Nome do Convidado
+              </label>
+              <select 
+                title="Mapear Coluna de Nome"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={columnMapping.name}
+                onChange={e => setColumnMapping({...columnMapping, name: e.target.value})}
+              >
+                <option value="">-- Ignorar ou Não Encontrado --</option>
+                {importData?.headers.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                <Shield size={16} className="text-indigo-500" /> CPF
+              </label>
+              <select 
+                title="Mapear Coluna de CPF"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={columnMapping.cpf}
+                onChange={e => setColumnMapping({...columnMapping, cpf: e.target.value})}
+              >
+                <option value="">-- Ignorar ou Não Encontrado --</option>
+                {importData?.headers.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+                <Clock size={16} className="text-indigo-500" /> Telefone / WhatsApp
+              </label>
+              <select 
+                title="Mapear Coluna de Telefone"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                value={columnMapping.phone}
+                onChange={e => setColumnMapping({...columnMapping, phone: e.target.value})}
+              >
+                <option value="">-- Ignorar ou Não Encontrado --</option>
+                {importData?.headers.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 space-y-3">
+            <button 
+              onClick={handleFinalImport}
+              disabled={isImporting}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-400 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              {isImporting ? <><Clock className="animate-spin" size={20} /> Importando...</> : <><Sparkles size={20} /> Concluir Importação</>}
+            </button>
+            <button 
+              onClick={() => setShowMappingModal(false)}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-2.5 rounded-xl transition-all"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       </Modal>
 
     </div>

@@ -33,7 +33,7 @@ function findBestColumn(headers: string[], keywords: string[]): string | undefin
   return undefined;
 }
 
-export const parseExcelGuests = async (file: File, eventId: string): Promise<Partial<Guest>[]> => {
+export const getExcelData = async (file: File): Promise<{ headers: string[], rows: ExcelRow[] }> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -45,34 +45,12 @@ export const parseExcelGuests = async (file: File, eventId: string): Promise<Par
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as ExcelRow[];
 
         if (jsonData.length === 0) {
-          resolve([]);
+          resolve({ headers: [], rows: [] });
           return;
         }
 
         const headers = Object.keys(jsonData[0]);
-        const nameCol = findBestColumn(headers, COLUMN_KEYWORDS.name);
-        const cpfCol = findBestColumn(headers, COLUMN_KEYWORDS.cpf);
-        const phoneCol = findBestColumn(headers, COLUMN_KEYWORDS.phone);
-
-        const guests: Partial<Guest>[] = jsonData.map(row => {
-          const id = crypto.randomUUID();
-          return {
-            id,
-            eventId,
-            name: nameCol ? String(row[nameCol]) : '',
-            cpf: cpfCol ? String(row[cpfCol]) : '',
-            phone: phoneCol ? String(row[phoneCol]) : '',
-            email: '',
-            checkedIn: false,
-            qrCodeData: JSON.stringify({
-              eventId,
-              guestId: id,
-              valid: true
-            })
-          };
-        }).filter(g => g.name || g.cpf || g.phone);
-
-        resolve(guests);
+        resolve({ headers, rows: jsonData });
       } catch (err) {
         reject(err);
       }
@@ -80,4 +58,43 @@ export const parseExcelGuests = async (file: File, eventId: string): Promise<Par
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
+};
+
+export const parseExcelGuestsWithMapping = (
+  rows: ExcelRow[], 
+  mapping: { name: string, cpf: string, phone: string }, 
+  eventId: string
+): Partial<Guest>[] => {
+  return rows.map(row => {
+    const id = crypto.randomUUID();
+    return {
+      id,
+      eventId,
+      name: mapping.name ? String(row[mapping.name] || '').trim() : '',
+      cpf: mapping.cpf ? String(row[mapping.cpf] || '').trim() : '',
+      phone: mapping.phone ? String(row[mapping.phone] || '').trim() : '',
+      email: '',
+      checkedIn: false,
+      qrCodeData: JSON.stringify({
+        eventId,
+        guestId: id,
+        valid: true
+      })
+    };
+  }).filter(g => g.name || g.cpf || g.phone);
+};
+
+export const autoDetectColumns = (headers: string[]) => {
+  return {
+    name: findBestColumn(headers, COLUMN_KEYWORDS.name) || '',
+    cpf: findBestColumn(headers, COLUMN_KEYWORDS.cpf) || '',
+    phone: findBestColumn(headers, COLUMN_KEYWORDS.phone) || ''
+  };
+};
+
+export const parseExcelGuests = async (file: File, eventId: string): Promise<Partial<Guest>[]> => {
+  // Legacy support for backward compatibility if needed, but we'll use the new flow
+  const { headers, rows } = await getExcelData(file);
+  const mapping = autoDetectColumns(headers);
+  return parseExcelGuestsWithMapping(rows, mapping, eventId);
 };
