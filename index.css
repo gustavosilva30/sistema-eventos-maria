@@ -82,3 +82,42 @@ select:focus {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* --- Mobile Responsiveness Enhancements --- */
+
+@media (max-width: 1024px) {
+  .mobile-bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around z-40 px-2;
+    padding-bottom: env(safe-area-inset-bottom);
+    height: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-sm;
+}
+
+/* Event Card Mobile Optimization */
+@media (max-width: 640px) {
+  .event-grid {
+    @apply grid-cols-1 gap-4;
+  }
+  
+  .card-compact {
+    @apply p-3;
+  }
+}
+
+/* Hide scrollbar for clean mobile UI */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

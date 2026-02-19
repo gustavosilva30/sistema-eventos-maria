@@ -12,6 +12,9 @@ import * as Storage from './services/supabaseStorageService';
 import * as GeminiService from './services/geminiService';
 import { parseExcelGuests } from './services/excelUtils';
 import { getCurrentUser, onAuthStateChange, signOut } from './services/authService';
+import * as SupabaseStorage from './services/supabaseStorage';
+import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
 
 // --- Helper Components ---
 
@@ -70,6 +73,8 @@ const App: React.FC = () => {
   const [newReminder, setNewReminder] = useState<{ text: string; date: string }>({ text: '', date: '' });
   const [newUser, setNewUser] = useState<Partial<AppUser>>({ role: 'STAFF' });
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [ticketImage, setTicketImage] = useState<string | null>(null);
 
   // Check authentication state on mount
   useEffect(() => {
@@ -184,7 +189,7 @@ const App: React.FC = () => {
     if (!newEvent.name || !newEvent.date || !newEvent.location) return;
 
     const event: Event = {
-      id: crypto.randomUUID(),
+      id: newEvent.id || crypto.randomUUID(),
       name: newEvent.name,
       date: newEvent.date,
       location: newEvent.location,
@@ -200,9 +205,34 @@ const App: React.FC = () => {
       setEvents(eventsData);
       setShowEventModal(false);
       setNewEvent({ attractions: [], gallery: [] });
+      
+      if (!newEvent.id) {
+        confetti({
+          particleCount: 150,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#4f46e5', '#7c3aed', '#10b981']
+        });
+      }
     } catch (error) {
       console.error('Error saving event:', error);
       alert('Erro ao salvar evento. Tente novamente.');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const url = await SupabaseStorage.uploadEventImage(file);
+      setNewEvent(prev => ({ ...prev, imageUrl: url }));
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao fazer upload da imagem.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -454,12 +484,44 @@ const App: React.FC = () => {
     }
   };
 
-  const sendWhatsApp = (guest: Guest) => {
-    const event = events.find(e => e.id === guest.eventId);
-    if (!event) return;
-    const message = `Olá ${guest.name}, seu ticket para o evento ${event.name} está disponível! Código: ${guest.id.substring(0, 8)}`;
-    const url = `https://wa.me/${guest.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+  const handleShareTicket = async (guest: Guest) => {
+    const ticketElement = document.getElementById('digital-ticket');
+    if (!ticketElement) return;
+
+    try {
+      const canvas = await html2canvas(ticketElement, {
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        scale: 2
+      });
+      
+      const image = canvas.toDataURL('image/png');
+      
+      // Check if Web Share API is available for files
+      if (navigator.share && navigator.canShare) {
+        const blob = await (await fetch(image)).blob();
+        const file = new File([blob], `ticket-${guest.name}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Seu Ticket - EventMaster AI',
+            text: `Aqui está o seu ingresso para o evento!`
+          });
+          return;
+        }
+      }
+      
+      // Fallback: Download image
+      const link = document.createElement('a');
+      link.download = `ticket-${guest.name}.png`;
+      link.href = image;
+      link.click();
+      alert('Ticket gerado! Se estiver no computador, envie a imagem baixada para o convidado.');
+    } catch (err) {
+      console.error('Error generating ticket image:', err);
+      alert('Erro ao gerar imagem do ticket.');
+    }
   };
 
   const sendEmail = (guest: Guest) => {
@@ -520,6 +582,12 @@ const App: React.FC = () => {
                   className="flex-1 bg-slate-50 hover:bg-slate-100 text-slate-700 py-2 rounded-lg text-sm font-medium transition-colors"
                 >
                   Gerenciar
+                </button>
+                <button 
+                  onClick={() => { setNewEvent(event); setShowEventModal(true); }}
+                  className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                >
+                  <Briefcase size={18} />
                 </button>
                 <button 
                   onClick={() => handleDeleteEvent(event.id)}
@@ -1038,6 +1106,44 @@ const App: React.FC = () => {
             {view === 'REMINDERS' && renderReminders()}
             {view === 'SETTINGS' && renderSettings()}
         </main>
+        
+        {/* Mobile Bottom Navigation */}
+        <nav className="lg:hidden mobile-bottom-nav">
+          <button 
+            onClick={() => setView('DASHBOARD')}
+            className={`flex flex-col items-center gap-1 transition-colors ${view === 'DASHBOARD' ? 'text-indigo-600' : 'text-slate-400'}`}
+          >
+            <Home size={24} />
+            <span className="text-[10px] font-medium">Eventos</span>
+          </button>
+          <button 
+            onClick={() => setView('GUESTS')}
+            className={`flex flex-col items-center gap-1 transition-colors ${view === 'GUESTS' ? 'text-indigo-600' : 'text-slate-400'}`}
+          >
+            <Users size={24} />
+            <span className="text-[10px] font-medium">Convidados</span>
+          </button>
+          <button 
+            onClick={() => setView('SCANNER')}
+            className="flex flex-col items-center justify-center -translate-y-4 bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg"
+          >
+            <QrCode size={28} />
+          </button>
+          <button 
+            onClick={() => setView('REMINDERS')}
+            className={`flex flex-col items-center gap-1 transition-colors ${view === 'REMINDERS' ? 'text-indigo-600' : 'text-slate-400'}`}
+          >
+            <Bell size={24} />
+            <span className="text-[10px] font-medium">Alertas</span>
+          </button>
+          <button 
+            onClick={() => setView('SETTINGS')}
+            className={`flex flex-col items-center gap-1 transition-colors ${view === 'SETTINGS' ? 'text-indigo-600' : 'text-slate-400'}`}
+          >
+            <Settings size={24} />
+            <span className="text-[10px] font-medium">Ajustes</span>
+          </button>
+        </nav>
       </div>
       
       {/* Full Screen Views that override layout */}
@@ -1093,9 +1199,33 @@ const App: React.FC = () => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Capa do Evento (URL)</label>
-            <input type="text" className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="https://..."
+            <label className="block text-sm font-medium text-slate-700 mb-1">Capa do Evento</label>
+            <div className="flex gap-4 items-center">
+              {newEvent.imageUrl && (
+                <img src={newEvent.imageUrl} alt="Preview" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+              )}
+              <div className="flex-1 relative">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileUpload}
+                  className="hidden" 
+                  id="event-image-upload" 
+                />
+                <label 
+                  htmlFor="event-image-upload"
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all text-sm text-slate-600"
+                >
+                  {isUploading ? (
+                    <><Clock className="animate-spin" size={16} /> Subindo...</>
+                  ) : (
+                    <><Calendar size={16} /> {newEvent.imageUrl ? 'Alterar Imagem' : 'Selecionar Imagem'}</>
+                  )}
+                </label>
+              </div>
+            </div>
+            <input type="text" className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 text-xs"
+              placeholder="Ou cole a URL da imagem aqui..."
               value={newEvent.imageUrl || ''}
               onChange={e => setNewEvent({...newEvent, imageUrl: e.target.value})}
             />
@@ -1195,15 +1325,80 @@ const App: React.FC = () => {
       {/* View QR Modal */}
       <Modal isOpen={!!showQRModal} onClose={() => setShowQRModal(null)} title="Ticket do Convidado">
         {showQRModal && (
-          <div className="flex flex-col items-center justify-center p-4">
-            <div className="bg-white p-4 rounded-xl shadow-lg border border-slate-100 mb-6">
-               <QRCode value={showQRModal.qrCodeData} size={200} level="M" fgColor="#1e293b" />
+          <div className="flex flex-col items-center justify-center">
+            {/* The Invisible Ticket for Capture */}
+            <div className="fixed left-[-9999px]">
+              <div id="digital-ticket" className="bg-white w-[350px] p-6 rounded-2xl border-2 border-slate-100 flex flex-col items-center">
+                <div className="w-full flex justify-between items-center mb-6">
+                  <div className="font-bold text-xl text-indigo-600">EventMaster AI</div>
+                  <div className="text-[10px] text-slate-400 font-mono uppercase tracking-widest px-2 py-1 bg-slate-50 rounded">Digital Pass</div>
+                </div>
+                
+                <div className="w-full h-32 bg-slate-100 rounded-xl mb-6 overflow-hidden border border-slate-100">
+                  <img src={events.find(e => e.id === showQRModal.eventId)?.imageUrl} alt="Event" className="w-full h-full object-cover" />
+                </div>
+                
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-6">
+                  <QRCode value={showQRModal.qrCodeData} size={160} level="M" fgColor="#1e293b" />
+                </div>
+                
+                <div className="w-full text-center space-y-1 mb-6">
+                  <h3 className="text-xl font-bold text-slate-900">{showQRModal.name}</h3>
+                  <p className="text-slate-500 text-xs font-mono">{showQRModal.cpf}</p>
+                </div>
+                
+                <div className="w-full pt-4 border-t border-dashed border-slate-200 grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Evento</div>
+                    <div className="text-sm font-bold text-slate-800 truncate">{events.find(e => e.id === showQRModal.eventId)?.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-slate-400 uppercase font-bold tracking-tight">Data</div>
+                    <div className="text-sm font-bold text-slate-800">{new Date(events.find(e => e.id === showQRModal.eventId)?.date || '').toLocaleDateString()}</div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 text-[9px] text-slate-300 text-center uppercase tracking-widest font-medium">
+                  Apresente este QR Code na entrada para validar seu acesso
+                </div>
+              </div>
             </div>
-            <h3 className="text-xl font-bold text-slate-900">{showQRModal.name}</h3>
-            <p className="text-slate-500 mb-6 text-sm">CPF: {showQRModal.cpf}</p>
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <button onClick={() => sendWhatsApp(showQRModal)} className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-medium"><MessageCircle size={20} /> WhatsApp</button>
-              <button onClick={() => sendEmail(showQRModal)} className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-lg font-medium"><Mail size={20} /> Email</button>
+
+            {/* Visual Preview for User */}
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-6 w-full max-w-[300px] flex flex-col items-center shadow-inner">
+               <div className="bg-white p-4 rounded-xl shadow-lg border border-slate-100 mb-6">
+                  <QRCode value={showQRModal.qrCodeData} size={180} level="M" fgColor="#1e293b" />
+               </div>
+               <h3 className="text-lg font-bold text-slate-900 text-center">{showQRModal.name}</h3>
+               <p className="text-slate-500 text-sm">Convite Individual</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 w-full">
+              <button 
+                onClick={() => handleShareTicket(showQRModal)} 
+                className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all active:scale-95"
+              >
+                <Share2 size={20} /> Compartilhar Ticket (Imagem)
+              </button>
+              
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button 
+                  onClick={() => {
+                    const event = events.find(e => e.id === showQRModal.eventId);
+                    const msg = `Olá ${showQRModal.name}, seu ticket para o evento ${event?.name} está disponível! Link: ${window.location.origin}`;
+                    window.open(`https://wa.me/${showQRModal.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                  }} 
+                  className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-medium text-sm transition-all"
+                >
+                  <MessageCircle size={18} /> WhatsApp
+                </button>
+                <button 
+                  onClick={() => sendEmail(showQRModal)} 
+                  className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3 rounded-xl font-medium text-sm transition-all"
+                >
+                  <Mail size={18} /> Email
+                </button>
+              </div>
             </div>
           </div>
         )}
