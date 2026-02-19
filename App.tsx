@@ -73,28 +73,21 @@ const App: React.FC = () => {
 
   // Check authentication state on mount
   useEffect(() => {
-    console.log('App mounted - starting auth check');
-    
     const checkAuth = async () => {
       try {
-        console.log('Checking current user...');
         const user = await getCurrentUser();
-        console.log('Current user result:', user);
         
         if (user) {
-          console.log('User authenticated, loading data...');
           setAuthUser(user);
           setIsAuthenticated(true);
           setView('DASHBOARD');
           await loadInitialData();
         } else {
-          console.log('No user found, showing login');
           setAuthUser(null);
           setIsAuthenticated(false);
           setView('LOGIN');
         }
       } catch (error) {
-        console.error('Error during auth check:', error);
         setAuthUser(null);
         setIsAuthenticated(false);
         setView('LOGIN');
@@ -106,7 +99,6 @@ const App: React.FC = () => {
     // Listen for auth changes
     try {
       const { data: { subscription } } = onAuthStateChange((user) => {
-        console.log('Auth state changed:', user);
         if (user) {
           setAuthUser(user);
           setIsAuthenticated(true);

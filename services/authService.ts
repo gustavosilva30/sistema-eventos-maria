@@ -10,14 +10,12 @@ export interface AuthUser {
 }
 
 export const signIn = async (email: string, password: string) => {
-  console.log('Attempting sign in for:', email);
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
-    console.error('Sign in error detaills:', error);
     throw error;
   }
 
@@ -25,7 +23,6 @@ export const signIn = async (email: string, password: string) => {
 };
 
 export const signUp = async (email: string, password: string, name: string) => {
-  console.log('Attempting sign up for:', email, name);
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -37,7 +34,6 @@ export const signUp = async (email: string, password: string, name: string) => {
   });
 
   if (error) {
-    console.error('Sign up error details:', error);
     throw error;
   }
 

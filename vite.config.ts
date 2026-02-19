@@ -6,12 +6,6 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     const isDebug = process.env.DEBUG_MODE === 'true';
     
-    console.log('VITE CONFIG:', {
-      mode,
-      cwd: process.cwd(),
-      URL: env.VITE_SUPABASE_URL ? 'PRESENT' : 'MISSING',
-      KEY: env.VITE_SUPABASE_ANON_KEY ? 'PRESENT' : 'MISSING'
-    });
     return {
       server: {
         port: 3001,
