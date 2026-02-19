@@ -1,9 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const generateEventDescription = async (eventName: string, location: string): Promise<string> => {
-  if (!process.env.API_KEY) return "AI description unavailable: Missing API Key.";
+  if (!ai) return "AI description unavailable: Missing API Key.";
 
   try {
     const response = await ai.models.generateContent({
