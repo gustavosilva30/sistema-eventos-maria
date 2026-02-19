@@ -47,7 +47,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, title }) => {
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>('LOGIN');
+  // Check for public ticket link early to initialize state correctly
+  const urlParams = new URL(window.location.href).searchParams;
+  const initialTicketId = urlParams.get('ticket');
+  
+  const [view, setView] = useState<ViewState>(initialTicketId ? 'PUBLIC_TICKET' : 'LOGIN');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -76,13 +80,13 @@ const App: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [ticketImage, setTicketImage] = useState<string | null>(null);
   const [publicTicketData, setPublicTicketData] = useState<{ guest: Guest, event: Event } | null>(null);
-  const [isLoadingPublic, setIsLoadingPublic] = useState(false);
+  const [isLoadingPublic, setIsLoadingPublic] = useState(!!initialTicketId);
 
   // Check authentication state on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const ticketId = urlParams.get('ticket');
+      const currentParams = new URL(window.location.href).searchParams;
+      const ticketIdInUrl = currentParams.get('ticket');
 
       try {
         const user = await getCurrentUser();
@@ -91,7 +95,7 @@ const App: React.FC = () => {
           setAuthUser(user);
           setIsAuthenticated(true);
           // Only change view if NOT loading a public ticket
-          if (!ticketId) {
+          if (!ticketIdInUrl) {
             setView('DASHBOARD');
             await loadInitialData();
           } else {
@@ -102,14 +106,14 @@ const App: React.FC = () => {
           setAuthUser(null);
           setIsAuthenticated(false);
           // Only change to LOGIN if NOT loading a public ticket
-          if (!ticketId) {
+          if (!ticketIdInUrl) {
             setView('LOGIN');
           }
         }
       } catch (error) {
         setAuthUser(null);
         setIsAuthenticated(false);
-        if (!ticketId) {
+        if (!ticketIdInUrl) {
           setView('LOGIN');
         }
       }
@@ -130,15 +134,17 @@ const App: React.FC = () => {
         if (user) {
           setAuthUser(user);
           setIsAuthenticated(true);
-          // Only redirect to Dashboard if we are NOT in public ticket view
-          if (view !== 'PUBLIC_TICKET') {
+          // Only redirect to Dashboard if we are NOT in public ticket mode (checking URL directly to avoid stale closures)
+          const currentParams = new URL(window.location.href).searchParams;
+          if (!currentParams.has('ticket')) {
             setView('DASHBOARD');
             loadInitialData();
           }
         } else {
           setAuthUser(null);
           setIsAuthenticated(false);
-          if (view !== 'PUBLIC_TICKET') {
+          const currentParams = new URL(window.location.href).searchParams;
+          if (!currentParams.has('ticket')) {
             setView('LOGIN');
           }
         }
