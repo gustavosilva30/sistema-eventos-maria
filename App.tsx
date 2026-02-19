@@ -505,6 +505,20 @@ const App: React.FC = () => {
       }
     }
   };
+  const handleToggleGuestSelection = (id: string) => {
+    const newSelected = new Set(selectedGuestIds);
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
+    setSelectedGuestIds(newSelected);
+  };
+
+  const handleSelectAllGuests = () => {
+    if (selectedGuestIds.size === guests.length) {
+      setSelectedGuestIds(new Set());
+    } else {
+      setSelectedGuestIds(new Set(guests.map(g => g.id)));
+    }
+  };
 
   const handleBulkDeleteGuests = async () => {
     const count = selectedGuestIds.size;
@@ -628,14 +642,14 @@ const App: React.FC = () => {
       const guest = await Storage.getGuestById(payload.guestId);
 
       if (!guest) {
-          setScanResult({ status: 'error', message: 'QR Code Inválido' }); // Guest not found or deleted
+          setScanResult({ status: 'error', message: 'Ticket não encontrado' }); 
           setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
           return;
       }
 
       // Verify Ticket belongs to correct event
       if (guest.eventId !== payload.eventId) {
-          setScanResult({ status: 'error', message: 'QR Code Inválido' }); // Event mismatch
+          setScanResult({ status: 'error', message: 'Convite deste convidado é de outro evento' }); 
           setTimeout(() => setScanResult({ status: 'idle', message: '' }), 3000);
           return;
       }
@@ -1304,6 +1318,14 @@ const App: React.FC = () => {
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
                   <tr>
+                    <th className="px-6 py-4 w-10">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                        checked={guests.length > 0 && selectedGuestIds.size === guests.length}
+                        onChange={handleSelectAllGuests}
+                      />
+                    </th>
                     <th className="px-6 py-4">Convidado</th>
                     <th className="px-6 py-4">Contato</th>
                     <th className="px-6 py-4">Status</th>
@@ -1313,13 +1335,21 @@ const App: React.FC = () => {
                 <tbody className="divide-y divide-slate-100">
                   {guests.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                         Nenhum convidado registrado ainda.
                       </td>
                     </tr>
                   )}
                   {guests.map(guest => (
-                    <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={guest.id} className={`hover:bg-slate-50 transition-colors ${selectedGuestIds.has(guest.id) ? 'bg-indigo-50/30' : ''}`}>
+                      <td className="px-6 py-4">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+                          checked={selectedGuestIds.has(guest.id)}
+                          onChange={() => handleToggleGuestSelection(guest.id)}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{guest.name}</div>
                         <div className="text-xs text-slate-400">CPF: {guest.cpf}</div>
@@ -1382,6 +1412,32 @@ const App: React.FC = () => {
               </table>
             </div>
           </div>
+          {/* Bulk Actions Toolbar (Floating) */}
+          {selectedGuestIds.size > 0 && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 bg-white border border-slate-200 shadow-2xl rounded-2xl px-6 py-3 flex items-center gap-6 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
+                  {selectedGuestIds.size}
+                </span>
+                <span className="text-sm font-medium text-slate-600">Convidado(s) selecionado(s)</span>
+              </div>
+              <div className="h-6 w-px bg-slate-200" />
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleBulkDeleteGuests} 
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Trash2 size={16} /> Excluir
+                </button>
+                <button 
+                  onClick={() => setSelectedGuestIds([])} 
+                  className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-slate-600"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

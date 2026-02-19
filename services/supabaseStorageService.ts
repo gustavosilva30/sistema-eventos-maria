@@ -171,6 +171,7 @@ export const getGuestsByEventId = async (eventId: string): Promise<Guest[]> => {
 };
 
 export const getGuestById = async (id: string): Promise<Guest | null> => {
+  console.log('getGuestById: Attempting to fetch guest with ID:', id);
   const { data, error } = await supabase
     .from('guests')
     .select('*')
@@ -178,10 +179,11 @@ export const getGuestById = async (id: string): Promise<Guest | null> => {
     .single();
 
   if (error || !data) {
-    console.error('Error fetching guest by ID:', error);
+    console.error('getGuestById: No guest found with ID:', id, error);
     return null;
   }
 
+  console.log('getGuestById: Successfully fetched guest:', data.name);
   return {
     id: data.id,
     registryId: data.registry_id,
@@ -376,6 +378,7 @@ export const checkInGuest = async (
   authorizedBy?: string, 
   method: 'QR' | 'MANUAL' = 'MANUAL'
 ): Promise<boolean> => {
+  console.log(`checkInGuest: Attempting to check in guest ID: ${guestId} by ${authorizedBy || 'N/A'} using method: ${method}`);
   // First check if guest is already checked in
   const { data: guest, error: fetchError } = await supabase
     .from('guests')
@@ -384,12 +387,13 @@ export const checkInGuest = async (
     .single();
 
   if (fetchError || !guest) {
-    console.error('Error fetching guest:', fetchError);
+    console.error('checkInGuest: Could not fetch guest status:', guestId, fetchError);
     return false;
   }
 
   if (guest.checked_in) {
-    return false; // Already checked in
+    console.warn('checkInGuest: Guest already checked in:', guestId);
+    return true; 
   }
 
   // Update guest with check-in info
