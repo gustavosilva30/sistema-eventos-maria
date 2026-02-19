@@ -1279,10 +1279,27 @@ const App: React.FC = () => {
                   <QRCode value={publicTicketData.guest.qrCodeData} size={200} level="M" fgColor="#1e293b" />
                 </div>
                 
-                <div className="w-full text-center space-y-2 mb-8">
+                <div className="w-full text-center space-y-3 mb-8">
                   <h3 className="text-2xl font-black text-[#0f172a] tracking-tight">{publicTicketData.guest.name}</h3>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[#64748b] text-[10px] font-mono tracking-tighter">
-                    CPF: {publicTicketData.guest.cpf}
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-[#64748b] text-[10px] font-mono tracking-tighter">
+                      CPF: {publicTicketData.guest.cpf}
+                    </div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-full text-indigo-600 text-[10px] font-mono tracking-tighter">
+                      TEL: {publicTicketData.guest.phone}
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2">
+                    {publicTicketData.guest.checkedIn ? (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                        <CheckCircle size={14} /> ENTRADA CONFIRMADA
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                        <Clock size={14} /> AGUARDANDO ENTRADA
+                      </span>
+                    )}
                   </div>
                 </div>
                 
