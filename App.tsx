@@ -1416,17 +1416,34 @@ const App: React.FC = () => {
         {showQRModal && (
           <div className="flex flex-col items-center justify-center">
             <div className="fixed top-0 left-0 pointer-events-none z-[-100] opacity-[0.001]">
-              <div id="digital-ticket" className="bg-white w-[350px] p-6 rounded-2xl border-2 border-[#f1f5f9] flex flex-col items-center">
+              <div 
+                id="digital-ticket" 
+                style={{ 
+                  backgroundColor: '#ffffff', 
+                  color: '#1e293b',
+                  borderColor: '#f1f5f9' 
+                }}
+                className="w-[350px] p-6 rounded-2xl border-2 flex flex-col items-center"
+              >
                 <div className="w-full flex justify-between items-center mb-6">
-                  <div className="font-bold text-xl text-[#4f46e5]">EventMaster AI</div>
-                  <div className="text-[10px] text-[#94a3b8] font-mono uppercase tracking-widest px-2 py-1 bg-[#f8fafc] rounded">Digital Pass</div>
+                  <div className="font-bold text-xl" style={{ color: '#4f46e5' }}>EventMaster AI</div>
+                  <div 
+                    className="text-[10px] font-mono uppercase tracking-widest px-2 py-1 rounded"
+                    style={{ color: '#94a3b8', backgroundColor: '#f8fafc' }}
+                  >
+                    Digital Pass
+                  </div>
                 </div>
                 
-                <div className="w-full h-32 bg-slate-100 rounded-xl mb-6 overflow-hidden border border-slate-100">
+                <div 
+                  className="w-full h-32 rounded-xl mb-6 overflow-hidden border"
+                  style={{ backgroundColor: '#f1f5f9', borderColor: '#f1f5f9' }}
+                >
                   <img src={events.find(e => e.id === showQRModal.eventId)?.imageUrl} 
                     alt="Event" 
                     className="w-full h-full object-cover" 
                     crossOrigin="anonymous" 
+                    style={{ border: 'none' }}
                   />
                 </div>
                 
@@ -1439,14 +1456,14 @@ const App: React.FC = () => {
                   <p className="text-[#64748b] text-xs font-mono">{showQRModal.cpf}</p>
                 </div>
                 
-                <div className="w-full pt-4 border-t border-dashed border-[#e2e8f0] grid grid-cols-2 gap-4">
+                <div className="w-full pt-4 border-t border-dashed grid grid-cols-2 gap-4" style={{ borderColor: '#e2e8f0' }}>
                   <div>
-                    <div className="text-[10px] text-[#94a3b8] uppercase font-bold tracking-tight">Evento</div>
-                    <div className="text-sm font-bold text-[#1e293b] truncate">{events.find(e => e.id === showQRModal.eventId)?.name}</div>
+                    <div className="text-[10px] uppercase font-bold tracking-tight" style={{ color: '#94a3b8' }}>Evento</div>
+                    <div className="text-sm font-bold truncate" style={{ color: '#1e293b' }}>{events.find(e => e.id === showQRModal.eventId)?.name}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-[#94a3b8] uppercase font-bold tracking-tight">Data</div>
-                    <div className="text-sm font-bold text-[#1e293b]">{new Date(events.find(e => e.id === showQRModal.eventId)?.date || '').toLocaleDateString()}</div>
+                    <div className="text-[10px] uppercase font-bold tracking-tight" style={{ color: '#94a3b8' }}>Data</div>
+                    <div className="text-sm font-bold" style={{ color: '#1e293b' }}>{new Date(events.find(e => e.id === showQRModal.eventId)?.date || '').toLocaleDateString()}</div>
                   </div>
                 </div>
                 
